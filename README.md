@@ -22,7 +22,7 @@ Unlike traditional enterprise proxies that require complex network infrastructur
             │                                                              │
             ▼                                                              ▼
 ┌─────────────────────────┐                                    ┌─────────────────────────┤
-│  Local Loopback Proxy   │                                    │   SQLite Database       │
+│  Local Loopback Proxy   │                                    │    MySQL Database       │
 │  (Enforces Whitelist)   │                                    │  (Rooms, Whitelists,    │
 └─────────────────────────┘                                    │       Logs)             │
                                                                └─────────────────────────┘
@@ -34,7 +34,7 @@ Unlike traditional enterprise proxies that require complex network infrastructur
 
 * **Client Agent:** Tauri (Rust + Web Frontend) with a local loopback traffic interceptor.
 * **Backend Server:** Node.js & ExpressJS (REST API + WebSocket server for live state management).
-* **Database:** SQLite (managed via lightweight ORM or raw SQL for session state, rooms, and audit logs).
+* **Database:** MySQL (managed via a lightweight ORM or raw SQL for session state, rooms, and audit logs).
 * **Instructor Dashboard:** React (Vite + Tailwind CSS) providing real-time room monitoring and instant whitelist toggles.
 
 ---
@@ -47,7 +47,7 @@ flex-project/
 │   ├── src/
 │   │   ├── routes/         # REST API endpoints for classrooms & auth
 │   │   ├── websocket/      # WebSocket connection handlers & heartbeat monitor
-│   │   └── database.js     # SQLite connection & schema initialization
+│   │   └── database.js     # MySQL connection & schema initialization
 │   ├── package.json
 │   └── server.js           # Entry point for Express backend
 ├── client/
@@ -71,7 +71,7 @@ flex-project/
 ```bash
 cd server
 npm install
-# Initialize SQLite database and start development server
+# Initialize MySQL database and start development server
 npm run dev
 ```
 
