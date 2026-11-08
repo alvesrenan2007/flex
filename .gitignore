@@ -1,0 +1,24 @@
+# --- Rust / Cargo ---
+client/src-tauri/target/
+client/**/*.rs.bk
+
+# --- Node / Frontend ---
+client/node_modules/
+client/dist/
+client/dist-ssr/
+client/*.local
+
+# --- Tauri Bundles (if compiled locally) ---
+client/src-tauri/gen/
+client/src-tauri/bundle/
+
+# --- OS / IDE ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+repomix-output.xml
+
+# --- Environment & Logs ---
+.env
+*.log
