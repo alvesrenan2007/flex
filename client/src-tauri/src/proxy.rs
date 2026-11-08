@@ -1,19 +1,20 @@
 use std::collections::HashSet;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tauri::plugin::{Builder, TauriPlugin};
 use tauri::Runtime;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
-// The plugin initialization function
-pub fn init<R: Runtime>() -> TauriPlugin<R> {
+// Accept the shared state from lib.rs
+pub fn init<R: Runtime>(is_active: Arc<AtomicBool>) -> TauriPlugin<R> {
     Builder::new("local-proxy")
-        .setup(|_app, _api| {
+        .setup(move |_app, _api| {
             println!("🔌 Initializing FLEX Local Proxy Plugin...");
 
-            // Spawn the proxy on Tauri's managed Tokio runtime
+            let active_state = is_active.clone();
             tauri::async_runtime::spawn(async move {
-                run_local_proxy(8080).await;
+                run_local_proxy(8080, active_state).await;
             });
 
             Ok(())
@@ -21,7 +22,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
         .build()
 }
 
-async fn run_local_proxy(port: u16) {
+async fn run_local_proxy(port: u16, is_active: Arc<AtomicBool>) {
     let whitelist_content =
         std::fs::read_to_string("whitelist.json").unwrap_or_else(|_| "[]".to_string());
 
@@ -44,9 +45,10 @@ async fn run_local_proxy(port: u16) {
     loop {
         if let Ok((client_stream, _)) = listener.accept().await {
             let whitelist_ref = Arc::clone(&whitelist);
+            let active_ref = Arc::clone(&is_active); // Clone for this specific connection
 
             tokio::spawn(async move {
-                if let Err(e) = handle_client(client_stream, whitelist_ref).await {
+                if let Err(e) = handle_client(client_stream, whitelist_ref, active_ref).await {
                     eprintln!("Connection error: {}", e);
                 }
             });
@@ -57,6 +59,7 @@ async fn run_local_proxy(port: u16) {
 async fn handle_client(
     mut client: TcpStream,
     whitelist: Arc<HashSet<String>>,
+    is_active: Arc<AtomicBool>,
 ) -> std::io::Result<()> {
     let mut buffer = [0u8; 4096];
     let bytes_read = client.read(&mut buffer).await?;
@@ -75,8 +78,17 @@ async fn handle_client(
             let host_port = parts[1];
             let domain = host_port.split(':').next().unwrap_or("");
 
-            if whitelist.contains(domain) {
-                println!("✅ ALLOWED: {}", domain);
+            // Check the UI toggle state
+            let proxy_enabled = is_active.load(Ordering::Relaxed);
+
+            // If proxy is OFF, or if the domain is in the whitelist, allow it
+            if !proxy_enabled || whitelist.contains(domain) {
+                if !proxy_enabled {
+                    println!("⚠️ PROXY OFF - PASSTHROUGH: {}", domain);
+                } else {
+                    println!("✅ ALLOWED: {}", domain);
+                }
+
                 let mut server = TcpStream::connect(host_port).await?;
                 client
                     .write_all(b"HTTP/1.1 200 Connection Established\r\n\r\n")

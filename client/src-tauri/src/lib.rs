@@ -4,7 +4,6 @@ use tauri::State;
 
 mod proxy;
 
-// A thread-safe state to share between the UI and the Proxy
 pub struct AppState {
     pub proxy_active: Arc<AtomicBool>,
 }
@@ -27,18 +26,22 @@ fn set_connection_details(nickname: String, room_id: String) -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Initialize our shared state as OFF by default
+    // 1. Create the shared atomic boolean (defaults to OFF/false)
+    let proxy_active = Arc::new(AtomicBool::new(false));
+
+    // 2. Clone the Arc for the UI state
     let app_state = AppState {
-        proxy_active: Arc::new(AtomicBool::new(false)),
+        proxy_active: proxy_active.clone(),
     };
 
     tauri::Builder::default()
-        .plugin(proxy::init())
-        .manage(app_state) // Register the state
+        // 3. Pass the original Arc into the proxy plugin
+        .plugin(proxy::init(proxy_active))
+        .manage(app_state)
         .invoke_handler(tauri::generate_handler![
             toggle_proxy,
             set_connection_details
-        ]) // Register the IPC commands
+        ])
         .setup(|_app| {
             println!("FLEX Student Client UI initialized!");
             Ok(())
