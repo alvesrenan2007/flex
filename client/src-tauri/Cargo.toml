@@ -7,17 +7,17 @@
     rust-version = "1.70"
 
     # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-    [lib]
-    name = "flex_client_lib"
-    crate-type = ["staticlib", "cdylib", "rlib"]
+[lib]
+name = "flex_client_lib"
+path = "src/lib.rs"
+crate-type = ["staticlib", "cdylib", "rlib"]
 
     [build-dependencies]
-    tauri-build = { version = "1.5", features = [] }
+    tauri-build = { version = "2", features = [] }
 
     [dependencies]
     # Tauri Core
-    tauri = { version = "1.5", features = ["http-all", "shell-open", "window-minimize", "window-maximize", "window-close"] }
+    tauri = { version = "2", features = [] }
     serde = { version = "1.0", features = ["derive"] }
     serde_json = "1.0"
 
@@ -30,6 +30,14 @@
     # Logging and Diagnostics
     log = "0.4"
     env_logger = "0.11"
+tauri-plugin-fs = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-http = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-os = "2"
+tauri-plugin-shell = "2"
+tauri-plugin-process = "2"
+tauri-plugin-clipboard-manager = "2"
 
     [features]
     # This feature is used for Tauri production builds vs custom dev logic
@@ -41,3 +49,6 @@
     lto = true
     opt-level = "s"
     strip = true
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-global-shortcut = "2"

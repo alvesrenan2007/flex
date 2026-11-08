@@ -1,6 +1,6 @@
 # --- Rust / Cargo ---
 client/src-tauri/target/
-client/**/*.rs.bk
+**/*.rs.bk
 
 # --- Node / Frontend ---
 client/node_modules/
