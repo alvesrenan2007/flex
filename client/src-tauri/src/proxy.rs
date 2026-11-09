@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use sysproxy::Sysproxy;
 use tauri::plugin::{Builder, TauriPlugin};
 use tauri::Runtime;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -102,4 +103,22 @@ async fn handle_client(
     }
 
     Ok(())
+}
+
+// Uses sysproxy to apply the proxy to the OS
+pub fn apply_system_proxy(enable: bool, port: u16) {
+    let proxy = Sysproxy {
+        enable,
+        host: "127.0.0.1".into(),
+        port,
+        bypass: "localhost,127.0.0.1".into(),
+    };
+
+    match proxy.set_system_proxy() {
+        Ok(_) => println!(
+            "🌐 OS Network Routing set to: {}",
+            if enable { "ON" } else { "OFF" }
+        ),
+        Err(e) => eprintln!("❌ Failed to change OS proxy settings: {}", e),
+    }
 }
