@@ -44,18 +44,10 @@ Unlike traditional enterprise proxies that require complex network infrastructur
 ```text
 flex-project/
 ├── server/
-│   ├── src/
-│   │   ├── routes/         # REST API endpoints for classrooms & auth
-│   │   ├── websocket/      # WebSocket connection handlers & heartbeat monitor
-│   │   └── database.js     # MySQL connection & schema initialization
-│   ├── package.json
-│   └── server.js           # Entry point for Express backend
 ├── client/
 │   ├── src/                # Student desktop app UI (Tauri / React)
 │   └── proxy/              # Local loopback proxy interceptor logic
 └── dashboard/
-    ├── src/                # Instructor React dashboard interface
-    └── package.json
 ```
 
 ---
