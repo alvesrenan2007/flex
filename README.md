@@ -63,9 +63,14 @@ flex-project/
 ```bash
 cd server
 npm install
-# Initialize MySQL database and start development server
+# Copy .env.example to .env and configure MySQL and JWT_SECRET
+npm start
+# Or use the development watcher
 npm run dev
 ```
+
+The HTTP and Socket.IO contract for the dashboard and client is documented in
+[server/docs/API.md](server/docs/API.md).
 
 ### 2. Running the Instructor Dashboard
 ```bash
