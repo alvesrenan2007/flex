@@ -142,15 +142,15 @@ test('creates a capacity-limited room and exposes participants only to its teach
     const created = await acknowledge(teacher, 'room:create', {
       name: '  Aula pública  ',
       capacity: 1,
-      whitelist: ['https://example.com/aula', 'https://example.org/material'],
+      whitelist: ['example.com', 'example.org'],
     });
     assert.equal(created.ok, true);
     assert.equal(created.room.name, 'Aula pública');
     assert.equal(created.room.capacity, 1);
     assert.equal(created.room.participantCount, 0);
     assert.deepEqual(created.room.whitelist, [
-      'https://example.com/aula',
-      'https://example.org/material',
+      'example.com',
+      'example.org',
     ]);
 
     const memberJoined = new Promise((resolve) => teacher.once('room:member-joined', resolve));
@@ -245,6 +245,59 @@ test('validates room capacity and guest nickname', async () => {
   }
 });
 
+test('allows the room teacher to update the whitelist in real time', async () => {
+  const teacher = await connect(firstTeacherToken);
+  const otherTeacher = await connect(secondTeacherToken);
+  let guest;
+
+  try {
+    const created = await acknowledge(teacher, 'room:create', {
+      name: 'Sala com whitelist dinâmica',
+      capacity: 5,
+      whitelist: ['example.com'],
+    });
+    guest = await connectGuest(created.room.id, 'Ana');
+
+    const denied = await acknowledge(otherTeacher, 'room:whitelist:update', {
+      roomId: created.room.id,
+      whitelist: ['example.org'],
+    });
+    assert.equal(denied.ok, false);
+    assert.equal(denied.error.code, 'ROOM_NOT_FOUND');
+
+    const invalid = await acknowledge(teacher, 'room:whitelist:update', {
+      roomId: created.room.id,
+      whitelist: ['javascript:alert(1)'],
+    });
+    assert.equal(invalid.ok, false);
+    assert.equal(invalid.error.code, 'INVALID_INPUT');
+
+    const updateReceived = new Promise((resolve) => {
+      guest.socket.once('room:whitelist:updated', resolve);
+    });
+    const updated = await acknowledge(teacher, 'room:whitelist:update', {
+      roomId: created.room.id,
+      whitelist: ['example.net'],
+    });
+    assert.equal(updated.ok, true);
+    assert.deepEqual(updated.room.whitelist, ['example.net']);
+    assert.deepEqual(await updateReceived, {
+      roomId: created.room.id,
+      whitelist: ['example.net'],
+    });
+
+    const participantsResponse = await fetch(
+      `${baseUrl}/flex/rooms/${created.room.id}/participants`,
+      { headers: { authorization: `Bearer ${firstTeacherToken}` } },
+    );
+    assert.deepEqual((await participantsResponse.json()).whitelist, ['example.net']);
+  } finally {
+    teacher.disconnect();
+    otherTeacher.disconnect();
+    if (guest) guest.socket.disconnect();
+  }
+});
+
 test('creates and manages teacher whitelist presets and applies a selected preset to a room', async () => {
   const teacher = await connect(firstTeacherToken);
   const otherTeacher = await connect(secondTeacherToken);
@@ -258,7 +311,7 @@ test('creates and manages teacher whitelist presets and applies a selected prese
       },
       body: JSON.stringify({
         name: 'Sites da aula',
-        urls: ['https://example.com/aula', 'https://example.org/material'],
+        urls: ['example.com', 'example.org'],
       }),
     });
     assert.equal(createdPresetResponse.status, 201);
@@ -293,7 +346,7 @@ test('creates and manages teacher whitelist presets and applies a selected prese
         authorization: `Bearer ${firstTeacherToken}`,
         'content-type': 'application/json',
       },
-      body: JSON.stringify({ name: 'Sites atualizados', urls: ['https://example.net/'] }),
+      body: JSON.stringify({ name: 'Sites atualizados', urls: ['example.net'] }),
     });
     assert.equal(updatedResponse.status, 200);
     assert.equal((await updatedResponse.json()).name, 'Sites atualizados');

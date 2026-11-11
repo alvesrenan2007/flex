@@ -38,24 +38,24 @@ test('validates, normalizes and scopes presets to the creating professor', async
   const service = new WhitelistPresetService(createRepository());
   const preset = await service.create(7, {
     name: '  Aula  ',
-    urls: ['https://example.com', 'https://example.com/'],
+    urls: ['Google.com', 'google.com'],
   });
 
   assert.equal(preset.name, 'Aula');
-  assert.deepEqual(preset.urls, ['https://example.com/']);
+  assert.deepEqual(preset.urls, ['google.com']);
   assert.equal((await service.list(7)).length, 1);
   assert.equal((await service.list(8)).length, 0);
   await assert.rejects(() => service.getByIdForProfessor(preset.id, 8), (err) => err.statusCode === 404);
 
   const updated = await service.update(preset.id, 7, {
-    urls: ['https://example.org/material'],
+    urls: ['example.org'],
   });
-  assert.deepEqual(updated.urls, ['https://example.org/material']);
+  assert.deepEqual(updated.urls, ['example.org']);
   await service.remove(preset.id, 7);
   assert.deepEqual(await service.list(7), []);
 });
 
-test('rejects non-http URLs, credentials, fragments and malformed whitelist data', async () => {
+test('requires plain valid domains and rejects URLs or malformed whitelist data', async () => {
   const service = new WhitelistPresetService(createRepository());
 
   for (const urls of [
@@ -69,4 +69,14 @@ test('rejects non-http URLs, credentials, fragments and malformed whitelist data
       (err) => err instanceof AppError && err.statusCode === 400,
     );
   }
+
+  for (const domain of ['example.com/path', 'example..com', '-example.com', '127.0.0.1']) {
+    await assert.rejects(
+      () => service.create(7, { name: 'Invalid', urls: [domain] }),
+      (err) => err instanceof AppError && err.statusCode === 400,
+    );
+  }
+
+  const preset = await service.create(7, { name: 'Subdomínio', urls: ['www.google.com'] });
+  assert.deepEqual(preset.urls, ['www.google.com']);
 });

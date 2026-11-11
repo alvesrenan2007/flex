@@ -193,6 +193,32 @@ function attachSocketHandlers(httpServer, roomManager, whitelistPresetService) {
       });
     });
 
+    socket.on('room:whitelist:update', (payload, acknowledge) => {
+      if (!socket.data.professorId) {
+        return reply(socket, acknowledge, 'room:error', {
+          ok: false,
+          error: { code: 'UNAUTHORIZED', message: 'Apenas professores autenticados podem alterar a whitelist' },
+        });
+      }
+
+      const roomId = payload && typeof payload.roomId === 'string' ? payload.roomId.trim() : '';
+      try {
+        const room = roomManager.updateWhitelist(
+          roomId,
+          socket.data.professorId,
+          payload && payload.whitelist,
+        );
+        const result = { ok: true, room };
+        socket.to(roomId).emit('room:whitelist:updated', {
+          roomId,
+          whitelist: room.whitelist,
+        });
+        return reply(socket, acknowledge, 'room:whitelist:updated', result);
+      } catch (err) {
+        return reply(socket, acknowledge, 'room:error', socketFailure(err));
+      }
+    });
+
     socket.on('room:leave', async (payload, acknowledge) => {
       const roomId = payload && typeof payload.roomId === 'string' ? payload.roomId.trim() : '';
       const participant = roomManager.getParticipant(roomId, socket.id);

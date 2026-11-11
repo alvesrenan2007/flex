@@ -117,6 +117,18 @@ class RoomManager {
     };
   }
 
+  updateWhitelist(roomId, professorId, whitelist) {
+    const room = this.rooms.get(roomId);
+    if (!room || room.professorId !== professorId) {
+      throw new AppError('Sala não encontrada', 404);
+    }
+
+    room.whitelist = normalizeWhitelist(whitelist);
+    room.presetId = null;
+    room.presetName = null;
+    return this.toJSON(room);
+  }
+
   listByProfessor(professorId) {
     return Array.from(this.rooms.values())
       .filter((room) => room.professorId === professorId)
