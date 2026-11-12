@@ -4,7 +4,6 @@ const AppError = require('../errors/AppError');
 const normalizeWhitelist = require('../utils/urlWhitelist');
 
 const ROOM_ID_CHARACTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-const DEVICE_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function createRoomId() {
   let id = '';
@@ -44,8 +43,6 @@ class RoomManager {
       presetName,
       createdAt: new Date().toISOString(),
       participants: new Map(),
-      deviceConnections: new Map(),
-      deviceIdsBySocket: new Map(),
     };
     this.rooms.set(id, room);
     return this.toJSON(room);
@@ -58,51 +55,27 @@ class RoomManager {
     }
   }
 
-  join(roomId, socketId, nickname, deviceId) {
+  join(roomId, socketId, nickname) {
     const room = this.rooms.get(roomId);
     if (!room) throw new AppError('Sala não encontrada', 404);
 
     const existing = room.participants.get(socketId);
     if (existing) return { room: this.toJSON(room), participant: { ...existing } };
 
-    const { nickname: normalizedNickname, deviceId: normalizedDeviceId } = this.validateGuestJoin(
-      roomId,
-      nickname,
-      deviceId,
-    );
-    const connectedSocketId = room.deviceConnections.get(normalizedDeviceId);
-    if (connectedSocketId && room.participants.has(connectedSocketId)) {
-      const error = new AppError(
-        'Já existe um aluno conectado nesta sala com este ID de dispositivo',
-        409,
-      );
-      error.code = 'DEVICE_ALREADY_CONNECTED';
-      throw error;
-    }
+    const normalizedNickname = this.validateGuestJoin(roomId, nickname).nickname;
 
     const participant = {
       nickname: normalizedNickname,
       connectedAt: new Date().toISOString(),
     };
     room.participants.set(socketId, participant);
-    room.deviceConnections.set(normalizedDeviceId, socketId);
-    room.deviceIdsBySocket.set(socketId, normalizedDeviceId);
     return { room: this.toJSON(room), participant: { ...participant } };
   }
 
-  normalizeDeviceId(deviceId) {
-    const normalizedDeviceId = typeof deviceId === 'string' ? deviceId.trim().toLowerCase() : '';
-    if (!DEVICE_ID_PATTERN.test(normalizedDeviceId)) {
-      throw new AppError('"deviceId" deve ser um UUID válido', 400);
-    }
-    return normalizedDeviceId;
-  }
-
-  validateGuestJoin(roomId, nickname, deviceId) {
+  validateGuestJoin(roomId, nickname) {
     const room = this.rooms.get(roomId);
     if (!room) throw new AppError('Sala não encontrada', 404);
 
-    const normalizedDeviceId = this.normalizeDeviceId(deviceId);
     const normalizedNickname = typeof nickname === 'string' ? nickname.trim() : '';
     if (!normalizedNickname || normalizedNickname.length > 40) {
       throw new AppError('O nickname deve ter entre 1 e 40 caracteres', 400);
@@ -114,7 +87,6 @@ class RoomManager {
     return {
       room: this.toJSON(room),
       nickname: normalizedNickname,
-      deviceId: normalizedDeviceId,
     };
   }
 
@@ -126,11 +98,6 @@ class RoomManager {
     if (!participant) return null;
 
     room.participants.delete(socketId);
-    const deviceId = room.deviceIdsBySocket.get(socketId);
-    if (deviceId && room.deviceConnections.get(deviceId) === socketId) {
-      room.deviceConnections.delete(deviceId);
-    }
-    room.deviceIdsBySocket.delete(socketId);
     return { room: this.toJSON(room), participant: { ...participant } };
   }
 

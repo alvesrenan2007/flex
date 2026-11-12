@@ -1,6 +1,5 @@
 const { after, before, test } = require('node:test');
 const assert = require('node:assert/strict');
-const { randomUUID } = require('node:crypto');
 const jwt = require('jsonwebtoken');
 const { io: createClient } = require('socket.io-client');
 const AppError = require('../src/errors/AppError');
@@ -64,17 +63,17 @@ function acknowledge(socket, event, payload) {
   });
 }
 
-async function requestGuestAccess(roomId, nickname, deviceId = randomUUID()) {
+async function requestGuestAccess(roomId, nickname) {
   const response = await fetch(`${baseUrl}/flex/rooms/join`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ roomId, nickname, deviceId }),
+    body: JSON.stringify({ roomId, nickname }),
   });
   return { response, body: await response.json() };
 }
 
-async function connectGuest(roomId, nickname, deviceId = randomUUID()) {
-  const access = await requestGuestAccess(roomId, nickname, deviceId);
+async function connectGuest(roomId, nickname) {
+  const access = await requestGuestAccess(roomId, nickname);
   if (!access.response.ok) return access;
 
   const socket = createClient(baseUrl, {
@@ -124,7 +123,6 @@ test('allows guests without a token but requires a teacher token to create rooms
     const joined = await acknowledge(guest, 'room:join', {
       roomId: created.room.id,
       nickname: 'Convidado direto',
-      deviceId: randomUUID(),
     });
     assert.equal(joined.ok, true);
     assert.equal(joined.participant.nickname, 'Convidado direto');
@@ -229,9 +227,6 @@ test('validates room capacity and guest nickname', async () => {
     const created = await acknowledge(teacher, 'room:create', { name: 'Sala', capacity: 2 });
     const invalidNickname = await requestGuestAccess(created.room.id, '   ');
     assert.equal(invalidNickname.response.status, 400);
-    const invalidDeviceId = await requestGuestAccess(created.room.id, 'Ana', 'not-a-uuid');
-    assert.equal(invalidDeviceId.response.status, 400);
-
     guest = await connectGuest(created.room.id, 'Ana');
     const received = new Promise((resolve) => teacher.once('room:message', resolve));
     assert.equal((await acknowledge(guest.socket, 'room:message', {
@@ -247,11 +242,10 @@ test('validates room capacity and guest nickname', async () => {
   }
 });
 
-test('allows only one active connection per device ID in each room', async () => {
+test('allows multiple student connections from the same IP in a room', async () => {
   const teacher = await connect(firstTeacherToken);
   const firstStudent = await connect();
   const secondStudent = await connect();
-  const deviceId = randomUUID();
 
   try {
     const firstRoom = await acknowledge(teacher, 'room:create', {
@@ -266,30 +260,19 @@ test('allows only one active connection per device ID in each room', async () =>
     assert.equal((await acknowledge(firstStudent, 'room:join', {
       roomId: firstRoom.room.id,
       nickname: 'Ana',
-      deviceId,
     })).ok, true);
 
-    const duplicate = await acknowledge(secondStudent, 'room:join', {
+    const sameRoom = await acknowledge(secondStudent, 'room:join', {
       roomId: firstRoom.room.id,
       nickname: 'Bia',
-      deviceId,
     });
-    assert.equal(duplicate.ok, false);
-    assert.equal(duplicate.error.code, 'DEVICE_ALREADY_CONNECTED');
+    assert.equal(sameRoom.ok, true);
 
     const otherRoom = await acknowledge(secondStudent, 'room:join', {
       roomId: secondRoom.room.id,
       nickname: 'Bia',
-      deviceId,
     });
     assert.equal(otherRoom.ok, true);
-
-    firstStudent.disconnect();
-    assert.equal((await acknowledge(secondStudent, 'room:join', {
-      roomId: firstRoom.room.id,
-      nickname: 'Bia',
-      deviceId,
-    })).ok, true);
   } finally {
     teacher.disconnect();
     firstStudent.disconnect();
