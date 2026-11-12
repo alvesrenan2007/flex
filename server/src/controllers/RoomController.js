@@ -24,12 +24,13 @@ class RoomController {
 
   guestAccess = (req, res, next) => {
     try {
-      const { room, nickname } = this.roomManager.validateGuestJoin(
+      const { room, nickname, deviceId } = this.roomManager.validateGuestJoin(
         req.body && req.body.roomId,
         req.body && req.body.nickname,
+        req.body && req.body.deviceId,
       );
       const token = jwt.sign(
-        { type: 'guest', roomId: room.id, nickname },
+        { type: 'guest', roomId: room.id, nickname, deviceId },
         config.jwt.secret,
         {
           subject: `guest:${randomUUID()}`,

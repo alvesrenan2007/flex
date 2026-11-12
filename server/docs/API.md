@@ -143,13 +143,20 @@ normalizados para minúsculas e duplicatas são removidas.
 ```json
 {
   "roomId": "<id-da-sala>",
-  "nickname": "Ana"
+  "nickname": "Ana",
+  "deviceId": "4c3a9d11-13db-4ac4-88fb-f2fb088f37a6"
 }
 ```
 
 Retorna um token de convidado com validade de 15 minutos, o nome da sala e a
 whitelist. Use esse token para conectar via Socket.IO. O cliente também pode
-conectar diretamente sem token e entrar com o evento `room:join`.
+conectar diretamente sem token e entrar com o evento `room:join`, enviando o
+mesmo `deviceId`.
+
+O cliente deve gerar um UUID aleatório na primeira execução e persistir o valor
+nos dados da instalação da aplicação. O servidor usa esse identificador para
+permitir somente uma conexão ativa por dispositivo em cada sala. O ID representa
+a instalação do aplicativo, não é uma identificação inviolável do hardware.
 
 ## Socket.IO
 
@@ -270,7 +277,8 @@ Após conectar sem autenticação, emita `room:join`:
 ```js
 guestSocket.emit('room:join', {
   roomId: 'A1B2C',
-  nickname: 'Ana'
+  nickname: 'Ana',
+  deviceId: '4c3a9d11-13db-4ac4-88fb-f2fb088f37a6'
 }, (result) => {
   if (result.ok) {
     console.log(result.room.whitelist);
@@ -283,8 +291,9 @@ guestSocket.emit('room:join', {
 O nickname deve ter de 1 a 40 caracteres. Se entrar com sucesso, o convidado
 recebe `room:joined` com os dados da sala, participante e whitelist. A capacidade
 conta convidados conectados; a conexão Socket.IO do professor não consome vaga.
-Em cada sala, somente uma conexão de aluno por endereço IP é permitida. Uma
-conexão da mesma máquina em outra sala é aceita.
+Em cada sala, somente uma conexão ativa por `deviceId` é permitida. O mesmo
+identificador pode entrar em salas diferentes; ao desconectar, ele é liberado
+para reconexão.
 
 Se usar a rota `POST /flex/rooms/join`, conecte passando o token retornado no
 handshake `auth.token`; a entrada será automática. Não emita também `room:join`
@@ -315,7 +324,7 @@ Eventos recebidos:
 
 Use acknowledgements para obter o resultado da operação solicitada. Os erros de
 sala usam códigos como `INVALID_INPUT`, `ROOM_NOT_FOUND`, `ROOM_FULL`,
-`NOT_IN_ROOM` e `UNAUTHORIZED`.
+`DEVICE_ALREADY_CONNECTED`, `NOT_IN_ROOM` e `UNAUTHORIZED`.
 
 ### Monitorar participantes
 

@@ -58,6 +58,7 @@ function attachSocketHandlers(httpServer, roomManager, whitelistPresetService) {
           || !payload.sub.startsWith('guest:')
           || typeof payload.roomId !== 'string'
           || typeof payload.nickname !== 'string'
+          || typeof payload.deviceId !== 'string'
         ) {
           return next(new Error('Token de convidado inválido'));
         }
@@ -65,6 +66,7 @@ function attachSocketHandlers(httpServer, roomManager, whitelistPresetService) {
         socket.data.guest = {
           roomId: payload.roomId,
           nickname: payload.nickname,
+          deviceId: roomManager.normalizeDeviceId(payload.deviceId),
         };
         return next();
       }
@@ -83,10 +85,10 @@ function attachSocketHandlers(httpServer, roomManager, whitelistPresetService) {
 
   io.on('connection', (socket) => {
     if (socket.data.guest) {
-      const { roomId, nickname } = socket.data.guest;
+      const { roomId, nickname, deviceId } = socket.data.guest;
       (async () => {
         try {
-          const joined = roomManager.join(roomId, socket.id, nickname, socket.handshake.address);
+          const joined = roomManager.join(roomId, socket.id, nickname, deviceId);
           await socket.join(roomId);
           socket.to(roomId).emit('room:member-joined', {
             roomId,
@@ -155,6 +157,9 @@ function attachSocketHandlers(httpServer, roomManager, whitelistPresetService) {
     socket.on('room:join', async (payload, acknowledge) => {
       const roomId = payload && typeof payload.roomId === 'string' ? payload.roomId.trim() : '';
       const nickname = payload && payload.nickname;
+      const deviceId = socket.data.guest
+        ? socket.data.guest.deviceId
+        : payload && payload.deviceId;
 
       if (socket.data.guest && socket.data.guest.roomId !== roomId) {
         return reply(socket, acknowledge, 'room:error', {
@@ -166,7 +171,7 @@ function attachSocketHandlers(httpServer, roomManager, whitelistPresetService) {
       const alreadyJoined = roomManager.getParticipant(roomId, socket.id);
       let joined;
       try {
-        joined = roomManager.join(roomId, socket.id, nickname, socket.handshake.address);
+        joined = roomManager.join(roomId, socket.id, nickname, deviceId);
       } catch (err) {
         return reply(socket, acknowledge, 'room:error', socketFailure(err));
       }
