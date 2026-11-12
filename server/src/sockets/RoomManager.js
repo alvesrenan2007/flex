@@ -1,7 +1,17 @@
-const { randomBytes } = require('crypto');
+const { randomInt } = require('crypto');
 
 const AppError = require('../errors/AppError');
 const normalizeWhitelist = require('../utils/urlWhitelist');
+
+const ROOM_ID_CHARACTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+
+function createRoomId() {
+  let id = '';
+  for (let index = 0; index < 5; index += 1) {
+    id += ROOM_ID_CHARACTERS[randomInt(ROOM_ID_CHARACTERS.length)];
+  }
+  return id;
+}
 
 class RoomManager {
   constructor() {
@@ -20,7 +30,7 @@ class RoomManager {
 
     let id;
     do {
-      id = randomBytes(8).toString('hex');
+      id = createRoomId();
     } while (this.rooms.has(id));
 
     const room = {

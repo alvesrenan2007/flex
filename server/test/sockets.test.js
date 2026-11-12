@@ -118,7 +118,7 @@ test('allows guests without a token but requires a teacher token to create rooms
     assert.equal(denied.error.code, 'UNAUTHORIZED');
 
     const created = await acknowledge(teacher, 'room:create', { name: 'Sala direta', capacity: 4 });
-    assert.match(created.room.id, /^[a-f0-9]{16}$/);
+    assert.match(created.room.id, /^[A-Z0-9]{5}$/);
     const memberJoined = new Promise((resolve) => teacher.once('room:member-joined', resolve));
     const joined = await acknowledge(guest, 'room:join', {
       roomId: created.room.id,

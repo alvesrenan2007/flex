@@ -207,12 +207,11 @@ exclusão posterior do preset não alteram a sala já aberta. Para atualizar a
 whitelist de uma sala ativa, o professor dono pode emitir
 `room:whitelist:update` com uma whitelist própria ou um `presetId` que lhe
 pertence, nunca os dois. Os participantes conectados recebem a nova lista
-imediatamente. O ID de sala é gerado como uma sequência aleatória hexadecimal
-de 16 caracteres.
+imediatamente. O ID de sala tem 5 caracteres alfanuméricos maiúsculos.
 
 ```js
 teacherSocket.emit('room:whitelist:update', {
-  roomId: '0123456789abcdef',
+  roomId: 'A1B2C',
   whitelist: ['example.net']
 }, (result) => {
   if (result.ok) {
@@ -227,7 +226,7 @@ Também é possível aplicar um preset à sala:
 
 ```js
 teacherSocket.emit('room:whitelist:update', {
-  roomId: '0123456789abcdef',
+  roomId: 'A1B2C',
   presetId: 1
 }, (result) => {
   if (result.ok) {
@@ -252,7 +251,7 @@ A resposta de acknowledgement e o evento `room:created` contêm:
 {
   "ok": true,
   "room": {
-    "id": "0123456789abcdef",
+    "id": "A1B2C",
     "name": "Aula de matemática",
     "capacity": 30,
     "participantCount": 0,
@@ -270,7 +269,7 @@ Após conectar sem autenticação, emita `room:join`:
 
 ```js
 guestSocket.emit('room:join', {
-  roomId: '0123456789abcdef',
+  roomId: 'A1B2C',
   nickname: 'Ana'
 }, (result) => {
   if (result.ok) {
@@ -326,7 +325,7 @@ eventos Socket.IO de entrada e saída.
 
 ```json
 {
-  "id": "0123456789abcdef",
+  "id": "A1B2C",
   "name": "Aula de matemática",
   "capacity": 30,
   "participantCount": 1,
