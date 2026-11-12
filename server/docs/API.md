@@ -98,7 +98,7 @@ Retorna os dados do professor associado ao token, sem a senha.
 | `GET` | `/flex/rooms/:roomId/participants` | Professor dono da sala | Lista participantes conectados |
 | `GET` | `/flex/rooms/presets` | Professor | Lista os presets de whitelist do professor |
 | `POST` | `/flex/rooms/presets` | Professor | Cria um preset |
-| `PUT` | `/flex/rooms/presets/:presetId` | Professor dono do preset | Atualiza nome e/ou URLs do preset |
+| `PUT` | `/flex/rooms/presets/:presetId` | Professor dono do preset | Atualiza nome e/ou domínios do preset |
 | `DELETE` | `/flex/rooms/presets/:presetId` | Professor dono do preset | Remove um preset |
 | `POST` | `/flex/rooms/join` | Não | Emite credencial temporária opcional para convidado |
 
@@ -123,8 +123,8 @@ Crie um preset com `POST /flex/rooms/presets`:
 {
   "name": "Sites da aula",
   "urls": [
-    "https://example.com/material",
-    "https://example.org"
+    "google.com",
+    "docs.example.org"
   ]
 }
 ```
@@ -132,9 +132,9 @@ Crie um preset com `POST /flex/rooms/presets`:
 Os presets são armazenados no MySQL e pertencem ao professor que os criou.
 `PUT` aceita `name`, `urls` ou ambos.
 
-As URLs são normalizadas e limitadas a 100 endereços HTTP/HTTPS absolutos. Não
-são aceitos esquemas diferentes de HTTP/HTTPS, credenciais na URL ou fragmentos
-(`#...`). URLs duplicadas são removidas.
+A lista `urls` contém somente domínios, sem protocolo, caminho ou porta, por
+exemplo `google.com`. São aceitos até 100 domínios válidos; eles são
+normalizados para minúsculas e duplicatas são removidas.
 
 ### Entrada HTTP opcional de convidado
 
@@ -197,26 +197,65 @@ whitelist própria, nunca os dois:
 {
   "name": "Aula de matemática",
   "capacity": 30,
-  "whitelist": ["https://example.com/material"]
+  "whitelist": ["example.com"]
 }
 ```
 
 `name` deve ter de 1 a 80 caracteres; `capacity` deve ser inteiro positivo. A
 whitelist é copiada para a sala no momento da criação, então alterações ou
-exclusão posterior do preset não alteram a sala já aberta.
+exclusão posterior do preset não alteram a sala já aberta. Para atualizar a
+whitelist de uma sala ativa, o professor dono pode emitir
+`room:whitelist:update` com uma whitelist própria ou um `presetId` que lhe
+pertence, nunca os dois. Os participantes conectados recebem a nova lista
+imediatamente. O ID de sala tem 5 caracteres alfanuméricos maiúsculos.
 
-Com acknowledgement, o servidor retorna o objeto abaixo no callback. Se não
-for enviado callback, o servidor emite o evento `room:created`:
+```js
+teacherSocket.emit('room:whitelist:update', {
+  roomId: 'A1B2C',
+  whitelist: ['example.net']
+}, (result) => {
+  if (result.ok) {
+    console.log(result.room.whitelist);
+  } else {
+    console.error(result.error);
+  }
+});
+```
+
+Também é possível aplicar um preset à sala:
+
+```js
+teacherSocket.emit('room:whitelist:update', {
+  roomId: 'A1B2C',
+  presetId: 1
+}, (result) => {
+  if (result.ok) {
+    console.log(result.room.presetName, result.room.whitelist);
+  } else {
+    console.error(result.error);
+  }
+});
+```
+
+O evento usa as mesmas regras de validação da whitelist de criação. A resposta
+de acknowledgement contém `{ "ok": true, "room": ... }`; o servidor também
+transmite `room:whitelist:updated` aos demais sockets da sala com
+`roomId` e `whitelist`. Somente o professor dono pode atualizar a lista; ao
+enviar uma whitelist própria, a sala deixa de estar associada ao preset usado
+anteriormente. Ao aplicar um preset, a lista é copiada no momento da atualização
+e a sala passa a exibir o ID e o nome desse preset.
+
+A resposta de acknowledgement e o evento `room:created` contêm:
 
 ```json
 {
   "ok": true,
   "room": {
-    "id": "0123456789abcdef",
+    "id": "A1B2C",
     "name": "Aula de matemática",
     "capacity": 30,
     "participantCount": 0,
-    "whitelist": ["https://example.com/material"],
+    "whitelist": ["example.com"],
     "presetId": 1,
     "presetName": "Sites da aula",
     "createdAt": "2026-01-01T12:00:00.000Z"
@@ -230,7 +269,7 @@ Após conectar sem autenticação, emita `room:join`:
 
 ```js
 guestSocket.emit('room:join', {
-  roomId: '0123456789abcdef',
+  roomId: 'A1B2C',
   nickname: 'Ana'
 }, (result) => {
   if (result.ok) {
@@ -241,10 +280,9 @@ guestSocket.emit('room:join', {
 });
 ```
 
-O nickname deve ter de 1 a 40 caracteres. Com acknowledgement, o callback recebe
-os dados da sala e do participante. Sem callback, o servidor emite
-`room:joined`. A capacidade conta convidados conectados; a conexão Socket.IO do
-professor não consome vaga.
+O nickname deve ter de 1 a 40 caracteres. Se entrar com sucesso, o convidado
+recebe `room:joined` com os dados da sala, participante e whitelist. A capacidade
+conta convidados conectados; a conexão Socket.IO do professor não consome vaga.
 
 Se usar a rota `POST /flex/rooms/join`, conecte passando o token retornado no
 handshake `auth.token`; a entrada será automática. Não emita também `room:join`
@@ -254,6 +292,7 @@ para esse fluxo.
 
 | Evento enviado | Payload | Resultado |
 |---|---|---|
+| `room:whitelist:update` | `{ "roomId": "<id>", "whitelist": ["google.com"] }` ou `{ "roomId": "<id>", "presetId": 1 }` | Atualiza a whitelist; acknowledgement `room:whitelist:updated` e broadcast para os demais sockets da sala |
 | `room:leave` | `{ "roomId": "<id>" }` | Sai da sala e recebe acknowledgement `room:left` |
 | `room:message` | `{ "roomId": "<id>", "message": "Olá" }` | Transmite a mensagem aos participantes |
 
@@ -264,8 +303,8 @@ Eventos recebidos:
 
 | Evento | Conteúdo |
 |---|---|
-| `room:created` | Sala criada pelo professor, quando não foi usado acknowledgement |
-| `room:joined` | Sala e participante após entrada, quando não foi usado acknowledgement ou quando o convidado entrou por token no handshake |
+| `room:created` | Sala criada pelo professor |
+| `room:joined` | Sala e participante após entrada |
 | `room:member-joined` | `roomId`, `nickname`, `participantCount` |
 | `room:member-left` | `roomId`, `nickname`, `participantCount` |
 | `room:message` | `roomId`, `nickname`, `message`, `sentAt` |
@@ -284,11 +323,11 @@ eventos Socket.IO de entrada e saída.
 
 ```json
 {
-  "id": "0123456789abcdef",
+  "id": "A1B2C",
   "name": "Aula de matemática",
   "capacity": 30,
   "participantCount": 1,
-  "whitelist": ["https://example.com/material"],
+  "whitelist": ["example.com"],
   "presetId": 1,
   "presetName": "Sites da aula",
   "createdAt": "2026-01-01T12:00:00.000Z",
@@ -320,7 +359,7 @@ inválido ou expirado), `404` (recurso ausente ou não pertencente ao professor)
 
 A API fornece a whitelist da sala para o front-end/cliente. A aplicação cliente
 deve encaminhá-la ao proxy local. A whitelist retornada pela API é uma lista de
-URLs; o backend atual não intercepta nem valida tráfego de rede em nome do
+domínios; o backend atual não intercepta nem valida tráfego de rede em nome do
 cliente. Não trate validação feita somente no front-end como uma barreira de
 segurança.
 
