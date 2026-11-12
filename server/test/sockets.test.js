@@ -118,6 +118,7 @@ test('allows guests without a token but requires a teacher token to create rooms
     assert.equal(denied.error.code, 'UNAUTHORIZED');
 
     const created = await acknowledge(teacher, 'room:create', { name: 'Sala direta', capacity: 4 });
+    assert.match(created.room.id, /^[a-f0-9]{16}$/);
     const memberJoined = new Promise((resolve) => teacher.once('room:member-joined', resolve));
     const joined = await acknowledge(guest, 'room:join', {
       roomId: created.room.id,
@@ -218,7 +219,6 @@ test('creates a capacity-limited room and exposes participants only to its teach
 test('validates room capacity and guest nickname', async () => {
   const teacher = await connect(firstTeacherToken);
   let guest;
-  let secondGuest;
 
   try {
     const invalidCapacity = await acknowledge(teacher, 'room:create', { name: 'Sala', capacity: 0 });
@@ -229,19 +229,56 @@ test('validates room capacity and guest nickname', async () => {
     assert.equal(invalidNickname.response.status, 400);
 
     guest = await connectGuest(created.room.id, 'Ana');
-    secondGuest = await connectGuest(created.room.id, 'Bia');
-    const received = new Promise((resolve) => guest.socket.once('room:message', resolve));
-    assert.equal((await acknowledge(secondGuest.socket, 'room:message', {
+    const received = new Promise((resolve) => teacher.once('room:message', resolve));
+    assert.equal((await acknowledge(guest.socket, 'room:message', {
       roomId: created.room.id,
-      message: 'Olá!',
+      message: 'Olá, professora!',
     })).ok, true);
     const message = await received;
-    assert.equal(message.nickname, 'Bia');
-    assert.equal(message.message, 'Olá!');
+    assert.equal(message.nickname, 'Ana');
+    assert.equal(message.message, 'Olá, professora!');
   } finally {
     teacher.disconnect();
     if (guest) guest.socket.disconnect();
-    if (secondGuest) secondGuest.socket.disconnect();
+  }
+});
+
+test('allows only one student connection per IP in each room', async () => {
+  const teacher = await connect(firstTeacherToken);
+  const firstStudent = await connect();
+  const secondStudent = await connect();
+
+  try {
+    const firstRoom = await acknowledge(teacher, 'room:create', {
+      name: 'Primeira sala',
+      capacity: 3,
+    });
+    const secondRoom = await acknowledge(teacher, 'room:create', {
+      name: 'Segunda sala',
+      capacity: 3,
+    });
+
+    assert.equal((await acknowledge(firstStudent, 'room:join', {
+      roomId: firstRoom.room.id,
+      nickname: 'Ana',
+    })).ok, true);
+
+    const duplicate = await acknowledge(secondStudent, 'room:join', {
+      roomId: firstRoom.room.id,
+      nickname: 'Bia',
+    });
+    assert.equal(duplicate.ok, false);
+    assert.equal(duplicate.error.code, 'STUDENT_ALREADY_CONNECTED');
+
+    const otherRoom = await acknowledge(secondStudent, 'room:join', {
+      roomId: secondRoom.room.id,
+      nickname: 'Bia',
+    });
+    assert.equal(otherRoom.ok, true);
+  } finally {
+    teacher.disconnect();
+    firstStudent.disconnect();
+    secondStudent.disconnect();
   }
 });
 
@@ -350,6 +387,22 @@ test('creates and manages teacher whitelist presets and applies a selected prese
     });
     assert.equal(updatedResponse.status, 200);
     assert.equal((await updatedResponse.json()).name, 'Sites atualizados');
+
+    const appliedPreset = await acknowledge(teacher, 'room:whitelist:update', {
+      roomId: created.room.id,
+      presetId: preset.id,
+    });
+    assert.equal(appliedPreset.ok, true);
+    assert.deepEqual(appliedPreset.room.whitelist, ['example.net']);
+    assert.equal(appliedPreset.room.presetId, preset.id);
+    assert.equal(appliedPreset.room.presetName, 'Sites atualizados');
+
+    const presetNotOwned = await acknowledge(otherTeacher, 'room:whitelist:update', {
+      roomId: created.room.id,
+      presetId: preset.id,
+    });
+    assert.equal(presetNotOwned.ok, false);
+    assert.equal(presetNotOwned.error.code, 'ROOM_NOT_FOUND');
 
     const deletedResponse = await fetch(`${baseUrl}/flex/rooms/presets/${preset.id}`, {
       method: 'DELETE',

@@ -33,6 +33,8 @@ class RoomManager {
       presetName,
       createdAt: new Date().toISOString(),
       participants: new Map(),
+      machineConnections: new Map(),
+      machineAddressesBySocket: new Map(),
     };
     this.rooms.set(id, room);
     return this.toJSON(room);
@@ -45,12 +47,27 @@ class RoomManager {
     }
   }
 
-  join(roomId, socketId, nickname) {
+  join(roomId, socketId, nickname, machineAddress) {
     const room = this.rooms.get(roomId);
     if (!room) throw new AppError('Sala não encontrada', 404);
 
     const existing = room.participants.get(socketId);
     if (existing) return { room: this.toJSON(room), participant: { ...existing } };
+
+    if (typeof machineAddress !== 'string' || !machineAddress.trim()) {
+      throw new AppError('Não foi possível identificar a máquina do aluno', 400);
+    }
+    const normalizedMachineAddress = machineAddress.trim().toLowerCase()
+      .replace(/^::ffff:/, '');
+    const connectedSocketId = room.machineConnections.get(normalizedMachineAddress);
+    if (connectedSocketId && room.participants.has(connectedSocketId)) {
+      const error = new AppError(
+        'Já existe um aluno conectado nesta sala a partir desta máquina',
+        409,
+      );
+      error.code = 'STUDENT_ALREADY_CONNECTED';
+      throw error;
+    }
 
     const normalizedNickname = this.validateGuestJoin(roomId, nickname).nickname;
 
@@ -59,6 +76,8 @@ class RoomManager {
       connectedAt: new Date().toISOString(),
     };
     room.participants.set(socketId, participant);
+    room.machineConnections.set(normalizedMachineAddress, socketId);
+    room.machineAddressesBySocket.set(socketId, normalizedMachineAddress);
     return { room: this.toJSON(room), participant: { ...participant } };
   }
 
@@ -88,6 +107,11 @@ class RoomManager {
     if (!participant) return null;
 
     room.participants.delete(socketId);
+    const machineAddress = room.machineAddressesBySocket.get(socketId);
+    if (machineAddress && room.machineConnections.get(machineAddress) === socketId) {
+      room.machineConnections.delete(machineAddress);
+    }
+    room.machineAddressesBySocket.delete(socketId);
     return { room: this.toJSON(room), participant: { ...participant } };
   }
 
@@ -117,15 +141,15 @@ class RoomManager {
     };
   }
 
-  updateWhitelist(roomId, professorId, whitelist) {
+  updateWhitelist(roomId, professorId, whitelist, presetId = null, presetName = null) {
     const room = this.rooms.get(roomId);
     if (!room || room.professorId !== professorId) {
       throw new AppError('Sala não encontrada', 404);
     }
 
     room.whitelist = normalizeWhitelist(whitelist);
-    room.presetId = null;
-    room.presetName = null;
+    room.presetId = presetId;
+    room.presetName = presetName;
     return this.toJSON(room);
   }
 

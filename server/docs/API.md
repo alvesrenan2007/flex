@@ -205,8 +205,10 @@ whitelist própria, nunca os dois:
 whitelist é copiada para a sala no momento da criação, então alterações ou
 exclusão posterior do preset não alteram a sala já aberta. Para atualizar a
 whitelist de uma sala ativa, o professor dono pode emitir
-`room:whitelist:update`; os participantes conectados recebem a nova lista
-imediatamente.
+`room:whitelist:update` com uma whitelist própria ou um `presetId` que lhe
+pertence, nunca os dois. Os participantes conectados recebem a nova lista
+imediatamente. O ID de sala é gerado como uma sequência aleatória hexadecimal
+de 16 caracteres.
 
 ```js
 teacherSocket.emit('room:whitelist:update', {
@@ -221,11 +223,28 @@ teacherSocket.emit('room:whitelist:update', {
 });
 ```
 
+Também é possível aplicar um preset à sala:
+
+```js
+teacherSocket.emit('room:whitelist:update', {
+  roomId: '0123456789abcdef',
+  presetId: 1
+}, (result) => {
+  if (result.ok) {
+    console.log(result.room.presetName, result.room.whitelist);
+  } else {
+    console.error(result.error);
+  }
+});
+```
+
 O evento usa as mesmas regras de validação da whitelist de criação. A resposta
 de acknowledgement contém `{ "ok": true, "room": ... }`; o servidor também
 transmite `room:whitelist:updated` aos demais sockets da sala com
 `roomId` e `whitelist`. Somente o professor dono pode atualizar a lista; ao
-alterá-la, a sala deixa de estar associada ao preset usado originalmente.
+enviar uma whitelist própria, a sala deixa de estar associada ao preset usado
+anteriormente. Ao aplicar um preset, a lista é copiada no momento da atualização
+e a sala passa a exibir o ID e o nome desse preset.
 
 A resposta de acknowledgement e o evento `room:created` contêm:
 
@@ -265,6 +284,8 @@ guestSocket.emit('room:join', {
 O nickname deve ter de 1 a 40 caracteres. Se entrar com sucesso, o convidado
 recebe `room:joined` com os dados da sala, participante e whitelist. A capacidade
 conta convidados conectados; a conexão Socket.IO do professor não consome vaga.
+Em cada sala, somente uma conexão de aluno por endereço IP é permitida. Uma
+conexão da mesma máquina em outra sala é aceita.
 
 Se usar a rota `POST /flex/rooms/join`, conecte passando o token retornado no
 handshake `auth.token`; a entrada será automática. Não emita também `room:join`
@@ -274,7 +295,7 @@ para esse fluxo.
 
 | Evento enviado | Payload | Resultado |
 |---|---|---|
-| `room:whitelist:update` | `{ "roomId": "<id>", "whitelist": ["google.com"] }` | Atualiza a whitelist; acknowledgement `room:whitelist:updated` e broadcast para os demais sockets da sala |
+| `room:whitelist:update` | `{ "roomId": "<id>", "whitelist": ["google.com"] }` ou `{ "roomId": "<id>", "presetId": 1 }` | Atualiza a whitelist; acknowledgement `room:whitelist:updated` e broadcast para os demais sockets da sala |
 | `room:leave` | `{ "roomId": "<id>" }` | Sai da sala e recebe acknowledgement `room:left` |
 | `room:message` | `{ "roomId": "<id>", "message": "Olá" }` | Transmite a mensagem aos participantes |
 
