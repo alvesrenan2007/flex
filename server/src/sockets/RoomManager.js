@@ -1,7 +1,17 @@
-const { randomBytes } = require('crypto');
+const { randomInt } = require('crypto');
 
 const AppError = require('../errors/AppError');
 const normalizeWhitelist = require('../utils/urlWhitelist');
+
+const ROOM_ID_CHARACTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+
+function createRoomId() {
+  let id = '';
+  for (let index = 0; index < 5; index += 1) {
+    id += ROOM_ID_CHARACTERS[randomInt(ROOM_ID_CHARACTERS.length)];
+  }
+  return id;
+}
 
 class RoomManager {
   constructor() {
@@ -20,7 +30,7 @@ class RoomManager {
 
     let id;
     do {
-      id = randomBytes(8).toString('hex');
+      id = createRoomId();
     } while (this.rooms.has(id));
 
     const room = {
@@ -34,7 +44,7 @@ class RoomManager {
       createdAt: new Date().toISOString(),
       participants: new Map(),
     };
-    this.rooms.set(id, room);
+    this.rooms.set(room.id, room);
     return this.toJSON(room);
   }
 
@@ -43,6 +53,23 @@ class RoomManager {
     if (room && room.professorId === professorId && room.participants.size === 0) {
       this.rooms.delete(roomId);
     }
+  }
+
+  close(roomId, professorId) {
+    const normalizedRoomId = typeof roomId === 'string' ? roomId.trim() : '';
+    if (!normalizedRoomId) {
+      throw new AppError('"roomId" é obrigatório', 400);
+    }
+
+    const room = this.rooms.get(normalizedRoomId);
+    if (!room || room.professorId !== professorId) {
+      throw new AppError('Sala não encontrada', 404);
+    }
+
+    const closedRoom = this.toJSON(room);
+    const participantSocketIds = [...room.participants.keys()];
+    this.rooms.delete(normalizedRoomId);
+    return { room: closedRoom, participantSocketIds };
   }
 
   join(roomId, socketId, nickname) {
@@ -115,6 +142,18 @@ class RoomManager {
       ...this.toJSON(room),
       participants: Array.from(room.participants.values(), (participant) => ({ ...participant })),
     };
+  }
+
+  updateWhitelist(roomId, professorId, whitelist, presetId = null, presetName = null) {
+    const room = this.rooms.get(roomId);
+    if (!room || room.professorId !== professorId) {
+      throw new AppError('Sala não encontrada', 404);
+    }
+
+    room.whitelist = normalizeWhitelist(whitelist);
+    room.presetId = presetId;
+    room.presetName = presetName;
+    return this.toJSON(room);
   }
 
   listByProfessor(professorId) {

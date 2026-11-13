@@ -22,7 +22,7 @@ function socketFailure(err) {
   return {
     ok: false,
     error: {
-      code: codes[err.statusCode] || 'ROOM_ERROR',
+      code: err.code || codes[err.statusCode] || 'ROOM_ERROR',
       message: err.message || 'Não foi possível concluir a operação',
     },
   };
@@ -146,7 +146,11 @@ function attachSocketHandlers(httpServer, roomManager, whitelistPresetService) {
           console.error('Falha ao adicionar professor à sala:', err);
           return reply(socket, acknowledge, 'room:error', socketFailure(err));
         }
-        return reply(socket, acknowledge, 'room:created', { ok: true, room });
+        return reply(socket, acknowledge, 'room:created', {
+          ok: true,
+          roomId: room.id,
+          room,
+        });
       } catch (err) {
         return reply(socket, acknowledge, 'room:error', socketFailure(err));
       }
@@ -191,6 +195,77 @@ function attachSocketHandlers(httpServer, roomManager, whitelistPresetService) {
         room: joined.room,
         participant: joined.participant,
       });
+    });
+
+    socket.on('room:whitelist:update', async (payload, acknowledge) => {
+      if (!socket.data.professorId) {
+        return reply(socket, acknowledge, 'room:error', {
+          ok: false,
+          error: { code: 'UNAUTHORIZED', message: 'Apenas professores autenticados podem alterar a whitelist' },
+        });
+      }
+
+      const roomId = payload && typeof payload.roomId === 'string' ? payload.roomId.trim() : '';
+      try {
+        const presetId = payload && payload.presetId;
+        if (presetId !== undefined && payload.whitelist !== undefined) {
+          throw new AppError('Escolha um preset ou informe "whitelist", não ambos', 400);
+        }
+
+        let whitelist = payload && payload.whitelist;
+        let presetName = null;
+        let selectedPresetId = null;
+        if (presetId !== undefined) {
+          const preset = await whitelistPresetService.getByIdForProfessor(
+            presetId,
+            socket.data.professorId,
+          );
+          whitelist = preset.urls;
+          presetName = preset.name;
+          selectedPresetId = Number(preset.id);
+        }
+
+        const room = roomManager.updateWhitelist(
+          roomId,
+          socket.data.professorId,
+          whitelist,
+          selectedPresetId,
+          presetName,
+        );
+        const result = { ok: true, room };
+        socket.to(roomId).emit('room:whitelist:updated', {
+          roomId,
+          whitelist: room.whitelist,
+        });
+        return reply(socket, acknowledge, 'room:whitelist:updated', result);
+      } catch (err) {
+        return reply(socket, acknowledge, 'room:error', socketFailure(err));
+      }
+    });
+
+    socket.on('room:close', async (payload, acknowledge) => {
+      if (!socket.data.professorId) {
+        return reply(socket, acknowledge, 'room:error', {
+          ok: false,
+          error: { code: 'UNAUTHORIZED', message: 'Apenas professores autenticados podem fechar salas' },
+        });
+      }
+
+      const roomId = payload && typeof payload.roomId === 'string' ? payload.roomId.trim() : '';
+      try {
+        const closed = roomManager.close(roomId, socket.data.professorId);
+        const result = { ok: true, roomId, room: closed.room };
+        socket.to(roomId).emit('room:closed', result);
+
+        await Promise.all(closed.participantSocketIds.map(async (socketId) => {
+          const participantSocket = io.sockets.sockets.get(socketId);
+          if (participantSocket) await participantSocket.leave(roomId);
+        }));
+        await socket.leave(roomId);
+        return reply(socket, acknowledge, 'room:closed', result);
+      } catch (err) {
+        return reply(socket, acknowledge, 'room:error', socketFailure(err));
+      }
     });
 
     socket.on('room:leave', async (payload, acknowledge) => {

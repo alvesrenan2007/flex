@@ -11,6 +11,11 @@ server/node_modules/
 server/coverage/
 server/dist/
 server/build/
+dashboard/node_modules/
+dashboard/dist/
+dashboard/.env
+dashboard/.env.*
+!dashboard/.env.example
 
 # --- Tauri Bundles (if compiled locally) ---
 client/src-tauri/gen/
