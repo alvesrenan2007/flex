@@ -1,3 +1,4 @@
+use rust_socketio::asynchronous::Client as SocketClient;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -11,11 +12,11 @@ pub struct AppState {
     pub whitelist: Arc<RwLock<HashSet<String>>>,
     pub room_id: Mutex<String>,
     pub nickname: Mutex<String>,
+    pub socket_client: Mutex<Option<SocketClient>>, 
 }
 
 #[tauri::command]
 fn set_connection_details(nickname: String, room_id: String, state: State<'_, AppState>) -> String {
-    // Save the UI inputs into our Rust state
     *state.nickname.lock().unwrap() = nickname.clone();
     *state.room_id.lock().unwrap() = room_id.clone();
     
@@ -24,33 +25,48 @@ fn set_connection_details(nickname: String, room_id: String, state: State<'_, Ap
 }
 
 #[tauri::command]
-fn toggle_proxy(active: bool, state: State<'_, AppState>) -> String {
+async fn toggle_proxy(active: bool, state: State<'_, AppState>) -> Result<String, String> {
     state.proxy_active.store(active, Ordering::Relaxed);
     
-    // Apply the OS network routing
-    proxy::apply_system_proxy(active, 8080);
-    
-    // If the proxy is turned ON, trigger the Socket.IO connection
     if active {
         let room_id = state.room_id.lock().unwrap().clone();
         let nickname = state.nickname.lock().unwrap().clone();
         let wl_clone = Arc::clone(&state.whitelist);
         
         if !room_id.is_empty() && !nickname.is_empty() {
-            tauri::async_runtime::spawn(async move {
-                proxy::run_socketio_client(wl_clone, room_id, nickname).await;
-            });
-        } else {
-            println!("⚠️ Skipping Socket.IO: Room ID or Nickname is missing.");
+            // 1. Establish connection FIRST while the network is normal
+            match proxy::connect_socketio(wl_clone, room_id, nickname).await {
+                Ok(client) => {
+                    *state.socket_client.lock().unwrap() = Some(client);
+                }
+                Err(e) => eprintln!("Socket.IO error: {}", e),
+            }
+        }
+        
+        // 2. Lock down the OS network routing SECOND
+        proxy::apply_system_proxy(active, 8080);
+    } else {
+        // 1. Release the OS network routing FIRST
+        proxy::apply_system_proxy(active, 8080);
+        
+        // 2. Disconnect Socket.IO SECOND
+        let client_opt = state.socket_client.lock().unwrap().take();
+        if let Some(client) = client_opt {
+            if let Err(e) = client.disconnect().await {
+                eprintln!("Error disconnecting: {}", e);
+            }
+            println!("🔌 Socket.IO disconnected from control plane.");
         }
     }
     
-    println!("⚙️ UI Command: Proxy state changed to {}", active);
-    format!("Proxy is now {}", if active { "ON" } else { "OFF" })
+    Ok(format!("Proxy is now {}", if active { "ON" } else { "OFF" }))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // 1. Instruct the app's internal HTTP clients to ignore the OS proxy
+    std::env::set_var("NO_PROXY", "localhost,127.0.0.1,::1");
+    
     let proxy_active = Arc::new(AtomicBool::new(false));
     let whitelist = Arc::new(RwLock::new(HashSet::new()));
 
@@ -59,10 +75,10 @@ pub fn run() {
         whitelist: whitelist.clone(),
         room_id: Mutex::new(String::new()),
         nickname: Mutex::new(String::new()),
+        socket_client: Mutex::new(None), // Initialize as empty
     };
 
     let app = tauri::Builder::default()
-        // Pass BOTH the active boolean and the whitelist to the proxy plugin
         .plugin(proxy::init(proxy_active, whitelist)) 
         .manage(app_state)
         .invoke_handler(tauri::generate_handler![

@@ -25,6 +25,12 @@ struct RoomData {
     whitelist: Vec<String>,
 }
 
+#[derive(Deserialize, Debug)]
+struct WhitelistUpdatePayload {
+    roomId: String,
+    whitelist: Vec<String>,
+}
+
 pub fn init<R: Runtime>(
     is_active: Arc<AtomicBool>, 
     whitelist: Arc<RwLock<HashSet<String>>>
@@ -135,44 +141,100 @@ async fn handle_client(
     Ok(())
 }
 
-pub async fn run_socketio_client(
+pub async fn connect_socketio(
     whitelist: Arc<RwLock<HashSet<String>>>,
     room_id: String,
     nickname: String,
-) {
-    let url = "http://purge-uncolored-movie.ngrok-free.dev";
+) -> Result<Client, String> {
+    let url = "https://purge-uncolored-movie.ngrok-free.dev"; 
     println!("📡 Connecting to FLEX Control Plane at {}", url);
 
-    let client = ClientBuilder::new(url)
-        .connect()
-        .await
-        .expect("❌ Failed to connect to Socket.IO server");
-
-    println!("✅ Connected via Socket.IO!");
-
-    let payload = json!({
-        "roomId": room_id,
-        "nickname": nickname
-    });
-
-    let wl_clone = Arc::clone(&whitelist);
-
-    // 1. Explicitly declare the required Future type to enforce coercion
-    let ack_callback = move |payload: Payload, _client: Client| -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + 'static>> {
-        let wl_inner = Arc::clone(&wl_clone);
+    // FIX: Prefixed variables with '_' to remove compilation warnings
+    let _wl_for_update = Arc::clone(&whitelist);
+    
+    let update_callback = move |payload: Payload, _client: Client| -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + 'static>> {
+        let wl_inner = Arc::clone(&_wl_for_update);
         
         Box::pin(async move {
+            println!("🔔 EVENT FIRED: room:whitelist:updated triggered!");
+            
             if let Payload::Text(values) = payload {
                 if let Some(parsed_value) = values.first() {
+                    // Log the raw JSON so you can verify the structure
+                    println!("📦 UPDATE PAYLOAD:\n{}", serde_json::to_string_pretty(parsed_value).unwrap_or_default());
                     
-                    // 1. Unwrap the Socket.IO array layer
                     let target_value = if parsed_value.is_array() {
                         parsed_value[0].clone()
                     } else {
                         parsed_value.clone()
                     };
 
-                    // 2. Parse the extracted object
+                    match serde_json::from_value::<WhitelistUpdatePayload>(target_value) {
+                        Ok(update) => {
+                            let mut wl = wl_inner.write().await;
+                            wl.clear();
+
+                            // The server now sends raw domains[cite: 1]. We parse them the same way as the initial sync.
+                            for raw_url in update.whitelist {
+                                let parseable_url = if raw_url.starts_with("http://") || raw_url.starts_with("https://") {
+                                    raw_url.clone()
+                                } else {
+                                    format!("https://{}", raw_url)
+                                };
+
+                                if let Ok(parsed_url) = Url::parse(&parseable_url) {
+                                    if let Some(host) = parsed_url.host_str() {
+                                        wl.insert(host.to_string());
+                                    }
+                                } else {
+                                    wl.insert(raw_url.clone());
+                                }
+                            }
+                            println!("✅ Live whitelist updated successfully. Active domains: {:?}", *wl);
+                        }
+                        Err(e) => {
+                            eprintln!("❌ Failed to parse live update: {}", e);
+                        }
+                    }
+                }
+            }
+        })
+    };
+
+    let client = ClientBuilder::new(url)
+        .opening_header("ngrok-skip-browser-warning", "true")
+        .on("room:whitelist:updated", update_callback)
+        .connect()
+        .await
+        .map_err(|e| format!("Failed to connect: {}", e))?;
+
+    println!("✅ Connected via Socket.IO! Preparing to join room...");
+
+    // Add a tiny delay to ensure the Engine.IO to WebSocket upgrade has fully completed
+    tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+
+    let payload = json!({
+        "roomId": room_id,
+        "nickname": nickname
+    });
+    
+    println!("📤 Emitting room:join payload: {}", payload);
+
+    let wl_clone = Arc::clone(&whitelist);
+
+    let ack_callback = move |payload: Payload, _client: Client| -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + 'static>> {
+        let wl_inner = Arc::clone(&wl_clone);
+        
+        Box::pin(async move {
+            println!("📥 Received ACK from server!");
+            if let Payload::Text(values) = payload {
+                if let Some(parsed_value) = values.first() {
+                    let target_value = if parsed_value.is_array() {
+                        parsed_value[0].clone()
+                    } else {
+                        parsed_value.clone()
+                    };
+
                     match serde_json::from_value::<RoomJoinResponse>(target_value) {
                         Ok(response) => {
                             if response.ok {
@@ -201,22 +263,24 @@ pub async fn run_socketio_client(
                                 eprintln!("❌ Server denied entry: {:?}", response.error);
                             }
                         }
-                        Err(e) => {
-                            eprintln!("❌ JSON PARSE ERROR: {}", e);
-                        }
+                        Err(e) => eprintln!("❌ JSON PARSE ERROR: {}", e),
                     }
                 }
             }
         })
     };
 
+    println!("⏳ Waiting for server acknowledgment...");
     if let Err(e) = client
         .emit_with_ack("room:join", payload, std::time::Duration::from_secs(5), ack_callback)
         .await
     {
         eprintln!("❌ Acknowledgment error: {}", e);
     }
+    
+    Ok(client)
 }
+
 
 pub fn apply_system_proxy(enable: bool, port: u16) {
     let proxy = Sysproxy {
