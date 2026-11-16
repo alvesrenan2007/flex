@@ -270,3 +270,119 @@ a:hover { text-decoration: underline; }
   .dashboard-nav { flex-wrap: wrap; gap: 6px 12px; font-size: 10px; }
   .dashboard-nav .dashboard-user-name { max-width: 90px; }
 }
+.topbar-controls { display: flex; align-items: center; gap: 18px; margin-left: auto; }
+.topbar-controls .topbar-account { display: flex; align-items: center; gap: 18px; }
+.theme-toggle { display: grid; place-items: center; width: 28px; height: 28px; flex: 0 0 28px; border: 1px solid #d5dbe6; border-radius: 50%; color: #31549c; background: transparent; cursor: pointer; font-size: 16px; line-height: 1; }
+.theme-toggle:hover { background: #eff4ff; }
+.dashboard-nav .theme-toggle { padding: 0; }
+:root[data-theme="dark"] { color-scheme: dark; color: #e7edf5; background: #101723; }
+.app-shell[data-theme="dark"] {
+  --dark-surface: #182232;
+  --dark-raised: #202c3e;
+  --dark-border: #39475c;
+  --dark-text: #e7edf5;
+  --dark-muted: #a4afbf;
+  color: var(--dark-text);
+  background: #101723;
+}
+.app-shell[data-theme="dark"] .topbar,
+.app-shell[data-theme="dark"] .auth-card,
+.app-shell[data-theme="dark"] .panel,
+.app-shell[data-theme="dark"] .room-item,
+.app-shell[data-theme="dark"] .preset-card,
+.app-shell[data-theme="dark"] .secondary-button,
+.app-shell[data-theme="dark"] .whitelist-preset-row select,
+.app-shell[data-theme="dark"] .whitelist-row,
+.app-shell[data-theme="dark"] .student-row,
+.app-shell[data-theme="dark"] .audit-entry,
+.app-shell[data-theme="dark"] .classroom-code input,
+.app-shell[data-theme="dark"] .room-picker select,
+.app-shell[data-theme="dark"] .form-stack input,
+.app-shell[data-theme="dark"] .form-stack select,
+.app-shell[data-theme="dark"] .form-stack textarea,
+.app-shell[data-theme="dark"] .auth-card input,
+.app-shell[data-theme="dark"] .add-domain-form input {
+  border-color: var(--dark-border);
+  color: var(--dark-text);
+  background: var(--dark-surface);
+}
+.app-shell[data-theme="dark"] .dashboard-shell { border-color: #39475c; }
+.app-shell[data-theme="dark"] .dashboard-shell .topbar { border-bottom-color: #39475c; }
+.app-shell[data-theme="dark"] .teacher-dashboard h1,
+.app-shell[data-theme="dark"] .panel h2,
+.app-shell[data-theme="dark"] .profile-summary-panel strong,
+.app-shell[data-theme="dark"] .preset-card-heading h3,
+.app-shell[data-theme="dark"] .form-stack label,
+.app-shell[data-theme="dark"] .preset-editor .form-stack label,
+.app-shell[data-theme="dark"] .profile-layout .form-stack label,
+.app-shell[data-theme="dark"] .classroom-code label,
+.app-shell[data-theme="dark"] .room-picker label,
+.app-shell[data-theme="dark"] .room-summary strong,
+.app-shell[data-theme="dark"] .dashboard-user-name {
+  color: var(--dark-text);
+}
+.app-shell[data-theme="dark"] a,
+.app-shell[data-theme="dark"] .dashboard-actions button,
+.app-shell[data-theme="dark"] .topbar-account button {
+  color: #a9c5ff;
+}
+.app-shell[data-theme="dark"] .dashboard-nav a[aria-current="page"] { color: var(--dark-text); }
+.app-shell[data-theme="dark"] .register-subtitle,
+.app-shell[data-theme="dark"] .auth-card label,
+.app-shell[data-theme="dark"] .login-brand p,
+.app-shell[data-theme="dark"] .dashboard-subtitle,
+.app-shell[data-theme="dark"] .panel-description,
+.app-shell[data-theme="dark"] .panel-heading > div > p,
+.app-shell[data-theme="dark"] .room-item-meta,
+.app-shell[data-theme="dark"] .empty-state,
+.app-shell[data-theme="dark"] .participant-list small,
+.app-shell[data-theme="dark"] .field-hint,
+.app-shell[data-theme="dark"] .profile-summary-panel > span:not(.profile-role-badge),
+.app-shell[data-theme="dark"] .profile-layout .profile-security-panel > p,
+.app-shell[data-theme="dark"] .profile-layout .account-danger-panel p,
+.app-shell[data-theme="dark"] .profile-layout .profile-data-panel label {
+  color: var(--dark-muted);
+}
+.app-shell[data-theme="dark"] .room-summary,
+.app-shell[data-theme="dark"] .preset-more-domains,
+.app-shell[data-theme="dark"] .audit-entry time,
+.app-shell[data-theme="dark"] .classroom-code input::placeholder {
+  color: var(--dark-muted);
+}
+.app-shell[data-theme="dark"] .student-status { color: #8fe2a5; }
+.app-shell[data-theme="dark"] .notice.error { color: #ffc4c4; background: #3a2028; }
+.app-shell[data-theme="dark"] .notice.success { color: #a5e8bd; background: #183728; }
+.app-shell[data-theme="dark"] .room-item:hover,
+.app-shell[data-theme="dark"] .room-item.selected,
+.app-shell[data-theme="dark"] .outline-button:hover {
+  border-color: #607da7;
+  background: var(--dark-raised);
+}
+.app-shell[data-theme="dark"] .whitelist-toggle { border-color: #7893bd; background: var(--dark-surface); }
+.app-shell[data-theme="dark"] .whitelist-toggle:checked { background: #31549c; }
+.app-shell[data-theme="dark"] .domain-chip,
+.app-shell[data-theme="dark"] .participant-count,
+.app-shell[data-theme="dark"] .participant-avatar,
+.app-shell[data-theme="dark"] .preset-domain-count,
+.app-shell[data-theme="dark"] .profile-role-badge {
+  color: #c4d6f5;
+  background: #263a59;
+}
+.app-shell[data-theme="dark"] .live-badge { color: #9ce0b5; background: #173c2c; }
+.app-shell[data-theme="dark"] .preset-domain-chip { border-color: var(--dark-border); color: var(--dark-text); }
+.app-shell[data-theme="dark"] .outline-button { border-color: #7893bd; color: #c4d6f5; background: var(--dark-surface); }
+.app-shell[data-theme="dark"] .delete-preset-button { border-color: #b85959; color: #ffaaaa; }
+.app-shell[data-theme="dark"] .account-danger-panel,
+.app-shell[data-theme="dark"] .profile-layout .account-danger-panel {
+  border-color: #773c43;
+  background: #2a1e28;
+}
+.app-shell[data-theme="dark"] .profile-layout .account-danger-panel h2 { color: #ff9696; }
+.app-shell[data-theme="dark"] .audit-entry.alert { border-color: #773c43; color: #ffd2d2; background: #2a1e28; }
+.app-shell[data-theme="dark"] .danger-button { color: #ffaaaa; border-color: #a65353; background: var(--dark-surface); }
+.app-shell[data-theme="dark"] .theme-toggle { border-color: #50627d; color: #f3d37a; }
+.app-shell[data-theme="dark"] .theme-toggle:hover { background: #26344a; }
+@media (max-width: 600px) {
+  .topbar-controls { gap: 10px; }
+  .topbar-controls .topbar-account { gap: 10px; }
+}
