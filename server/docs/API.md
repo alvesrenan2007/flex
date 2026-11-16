@@ -205,9 +205,9 @@ whitelist própria, nunca os dois:
 whitelist é copiada para a sala no momento da criação, então alterações ou
 exclusão posterior do preset não alteram a sala já aberta. Para atualizar a
 whitelist de uma sala ativa, o professor dono pode emitir
-`room:whitelist:update` com um `presetId` que lhe pertence ou com uma whitelist
-própria, nunca os dois. Os participantes conectados recebem a nova lista
-imediatamente.
+`room:whitelist:update` com uma whitelist própria ou um `presetId` que lhe
+pertence, nunca os dois. Os participantes conectados recebem a nova lista
+imediatamente. O ID de sala tem 5 caracteres alfanuméricos maiúsculos.
 
 ```js
 teacherSocket.emit('room:whitelist:update', {
