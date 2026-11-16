@@ -33,7 +33,7 @@ export default function Layout({ children }) {
     <div className={`app-shell ${isDashboard ? 'dashboard-shell' : ''}`} data-theme={theme}>
       <header className="topbar">
         <div className="topbar-inner">
-          <Logo size={43} />
+          <Logo size={43} theme={theme} />
           {isAuthenticated && isDashboard ? (
             <nav className="dashboard-nav" aria-label="Navegação principal">
               <NavLink to="/app" end>Dashboard</NavLink>
