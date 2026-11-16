@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { professorsApi } from '../api/professors';
 import { roomsApi, teacherRoomSocket } from '../api/rooms';
@@ -33,7 +33,8 @@ function getInitials(value) {
 export default function Home() {
   const { professor, token, logout, refreshProfile } = useAuth();
   const navigate = useNavigate();
-  const [section, setSection] = useState('rooms');
+  const { pathname } = useLocation();
+  const section = pathname.endsWith('/presets') ? 'presets' : pathname.endsWith('/profile') ? 'profile' : 'rooms';
   const [rooms, setRooms] = useState([]);
   const [presets, setPresets] = useState([]);
   const [selectedRoomId, setSelectedRoomId] = useState('');
@@ -404,14 +405,11 @@ export default function Home() {
             <button type="button" className="primary-button copy-button" disabled={!selectedRoom?.id} onClick={copyRoomCode}>Copy</button>
           </div>
         )}
-        <nav className="dashboard-actions" aria-label="Seções do professor">
-          {section !== 'rooms' && <button type="button" onClick={() => { setSection('rooms'); setError(''); setNotice(''); }}>Dashboard</button>}
-          <button type="button" className={section === 'presets' ? 'active' : ''} onClick={() => { setSection('presets'); setError(''); setNotice(''); }}>Presets</button>
-          <button type="button" className={section === 'profile' ? 'active' : ''} onClick={() => { setSection('profile'); setError(''); setNotice(''); }}>Perfil</button>
+        <div className="dashboard-actions">
           {section === 'presets' && <button type="button" className="primary-button new-preset-button" onClick={startCreatingPreset}>Novo Preset</button>}
           {section === 'rooms' && selectedRoom && <button type="button" className="danger-button close-room-button" disabled={closingRoom} onClick={handleCloseRoom}>{closingRoom ? 'Fechando...' : 'Fechar sala'}</button>}
           {section === 'rooms' && <button type="button" className="primary-button new-room-button" onClick={() => setShowCreateRoom((visible) => !visible)}>{showCreateRoom ? 'Cancelar' : '+ Nova sala'}</button>}
-        </nav>
+        </div>
       </div>
 
       {error && <p className="notice error dashboard-notice" role="alert">{error}</p>}

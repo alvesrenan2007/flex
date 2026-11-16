@@ -258,3 +258,15 @@ a:hover { text-decoration: underline; }
   .profile-layout > .panel { min-height: 0; }
   .profile-layout .profile-summary-panel { min-height: 190px; }
 }
+.dashboard-shell .topbar { height: auto; min-height: 54px; }
+.dashboard-shell .topbar-inner { min-height: 54px; height: auto; gap: 12px; }
+.dashboard-nav { display: flex; align-items: center; justify-content: flex-end; gap: 21px; margin-left: auto; color: #141414; font-size: 11px; font-weight: 600; }
+.dashboard-nav a, .dashboard-nav button { flex: 0 0 auto; border: 0; padding: 3px 0; color: #31549c; background: transparent; cursor: pointer; font: inherit; }
+.dashboard-nav a:hover, .dashboard-nav button:hover { text-decoration: underline; }
+.dashboard-nav a[aria-current="page"] { color: #111; text-decoration: underline; text-underline-offset: 4px; }
+.dashboard-nav .dashboard-user-name { max-width: 140px; overflow: hidden; color: #141414; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 600px) {
+  .dashboard-shell .topbar-inner { align-items: center; gap: 6px; padding-right: 12px; padding-left: 12px; }
+  .dashboard-nav { flex-wrap: wrap; gap: 6px 12px; font-size: 10px; }
+  .dashboard-nav .dashboard-user-name { max-width: 90px; }
+}
