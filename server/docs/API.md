@@ -245,11 +245,14 @@ enviar uma whitelist própria, a sala deixa de estar associada ao preset usado
 anteriormente. Ao aplicar um preset, a lista é copiada no momento da atualização
 e a sala passa a exibir o ID e o nome desse preset.
 
-A resposta de acknowledgement e o evento `room:created` contêm:
+A resposta de acknowledgement e o evento `room:created` contêm `roomId` no
+nível superior e o mesmo ID em `room.id`. O ID tem cinco caracteres
+alfanuméricos em maiúsculas:
 
 ```json
 {
   "ok": true,
+  "roomId": "A1B2C",
   "room": {
     "id": "A1B2C",
     "name": "Aula de matemática",
@@ -262,6 +265,27 @@ A resposta de acknowledgement e o evento `room:created` contêm:
   }
 }
 ```
+
+### Fechar sala (professor)
+
+O professor dono da sala pode encerrá-la com `room:close`:
+
+```js
+teacherSocket.emit('room:close', { roomId: 'A1B2C' }, (result) => {
+  if (!result.ok) {
+    console.error(result.error);
+    return;
+  }
+  console.log(result.roomId);
+});
+```
+
+O acknowledgement retorna `{ ok: true, roomId, room }`. A sala é removida da
+lista de salas ativas e deixa de aceitar participantes e mensagens. Os
+participantes recebem `room:closed` e são removidos daquela sala; a conexão
+Socket.IO permanece ativa caso também estejam em outras salas. Somente o
+professor dono pode encerrá-la; salas inexistentes ou de outro professor
+retornam `ROOM_NOT_FOUND`.
 
 ### Entrada direta do convidado
 
@@ -293,6 +317,7 @@ para esse fluxo.
 | Evento enviado | Payload | Resultado |
 |---|---|---|
 | `room:whitelist:update` | `{ "roomId": "<id>", "whitelist": ["google.com"] }` ou `{ "roomId": "<id>", "presetId": 1 }` | Atualiza a whitelist; acknowledgement `room:whitelist:updated` e broadcast para os demais sockets da sala |
+| `room:close` | `{ "roomId": "<id>" }` | Encerra a sala, remove os participantes dela e emite `room:closed`; acknowledgement com `{ ok, roomId, room }` |
 | `room:leave` | `{ "roomId": "<id>" }` | Sai da sala e recebe acknowledgement `room:left` |
 | `room:message` | `{ "roomId": "<id>", "message": "Olá" }` | Transmite a mensagem aos participantes |
 
@@ -307,6 +332,7 @@ Eventos recebidos:
 | `room:joined` | Sala e participante após entrada |
 | `room:member-joined` | `roomId`, `nickname`, `participantCount` |
 | `room:member-left` | `roomId`, `nickname`, `participantCount` |
+| `room:closed` | `{ ok: true, roomId, room }`; informa que a sala foi encerrada |
 | `room:message` | `roomId`, `nickname`, `message`, `sentAt` |
 | `room:left` | Confirmação de saída |
 | `room:error` | Erro com `code` e `message` |

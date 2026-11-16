@@ -35,7 +35,7 @@ Unlike traditional enterprise proxies that require complex network infrastructur
 * **Client Agent:** Tauri (Rust + Web Frontend) with a local loopback traffic interceptor.
 * **Backend Server:** Node.js & ExpressJS (REST API + WebSocket server for live state management).
 * **Database:** MySQL (managed via a lightweight ORM or raw SQL for session state, rooms, and audit logs).
-* **Instructor Dashboard:** React (Vite + Tailwind CSS) providing real-time room monitoring and instant whitelist toggles.
+* **Instructor Dashboard:** React + Vite web app providing room management, participant monitoring, and real-time whitelist updates.
 
 ---
 
@@ -47,7 +47,7 @@ flex-project/
 ├── client/
 │   ├── src/                # Student desktop app UI (Tauri / React)
 │   └── proxy/              # Local loopback proxy interceptor logic
-└── dashboard/
+└── dashboard/              # Instructor web dashboard (React / Vite)
 ```
 
 ---
@@ -76,8 +76,13 @@ The HTTP and Socket.IO contract for the dashboard and client is documented in
 ```bash
 cd dashboard
 npm install
-npm run dev
+npm run dev                 # http://localhost:8080
 ```
+
+Configure `dashboard/.env` with `VITE_API_URL` if the API is not running at
+`http://localhost:3000`. See [dashboard/README.md](dashboard/README.md) for
+dashboard setup and [server/docs/API.md](server/docs/API.md) for the API
+contract.
 
 ### 3. Running the Student Client
 ```bash

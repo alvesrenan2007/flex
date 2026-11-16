@@ -44,7 +44,7 @@ class RoomManager {
       createdAt: new Date().toISOString(),
       participants: new Map(),
     };
-    this.rooms.set(id, room);
+    this.rooms.set(room.id, room);
     return this.toJSON(room);
   }
 
@@ -53,6 +53,23 @@ class RoomManager {
     if (room && room.professorId === professorId && room.participants.size === 0) {
       this.rooms.delete(roomId);
     }
+  }
+
+  close(roomId, professorId) {
+    const normalizedRoomId = typeof roomId === 'string' ? roomId.trim() : '';
+    if (!normalizedRoomId) {
+      throw new AppError('"roomId" é obrigatório', 400);
+    }
+
+    const room = this.rooms.get(normalizedRoomId);
+    if (!room || room.professorId !== professorId) {
+      throw new AppError('Sala não encontrada', 404);
+    }
+
+    const closedRoom = this.toJSON(room);
+    const participantSocketIds = [...room.participants.keys()];
+    this.rooms.delete(normalizedRoomId);
+    return { room: closedRoom, participantSocketIds };
   }
 
   join(roomId, socketId, nickname) {

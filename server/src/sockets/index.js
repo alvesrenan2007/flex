@@ -146,7 +146,11 @@ function attachSocketHandlers(httpServer, roomManager, whitelistPresetService) {
           console.error('Falha ao adicionar professor à sala:', err);
           return reply(socket, acknowledge, 'room:error', socketFailure(err));
         }
-        return reply(socket, acknowledge, 'room:created', { ok: true, room });
+        return reply(socket, acknowledge, 'room:created', {
+          ok: true,
+          roomId: room.id,
+          room,
+        });
       } catch (err) {
         return reply(socket, acknowledge, 'room:error', socketFailure(err));
       }
@@ -234,6 +238,31 @@ function attachSocketHandlers(httpServer, roomManager, whitelistPresetService) {
           whitelist: room.whitelist,
         });
         return reply(socket, acknowledge, 'room:whitelist:updated', result);
+      } catch (err) {
+        return reply(socket, acknowledge, 'room:error', socketFailure(err));
+      }
+    });
+
+    socket.on('room:close', async (payload, acknowledge) => {
+      if (!socket.data.professorId) {
+        return reply(socket, acknowledge, 'room:error', {
+          ok: false,
+          error: { code: 'UNAUTHORIZED', message: 'Apenas professores autenticados podem fechar salas' },
+        });
+      }
+
+      const roomId = payload && typeof payload.roomId === 'string' ? payload.roomId.trim() : '';
+      try {
+        const closed = roomManager.close(roomId, socket.data.professorId);
+        const result = { ok: true, roomId, room: closed.room };
+        socket.to(roomId).emit('room:closed', result);
+
+        await Promise.all(closed.participantSocketIds.map(async (socketId) => {
+          const participantSocket = io.sockets.sockets.get(socketId);
+          if (participantSocket) await participantSocket.leave(roomId);
+        }));
+        await socket.leave(roomId);
+        return reply(socket, acknowledge, 'room:closed', result);
       } catch (err) {
         return reply(socket, acknowledge, 'room:error', socketFailure(err));
       }

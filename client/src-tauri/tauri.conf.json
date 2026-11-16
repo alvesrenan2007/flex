@@ -18,7 +18,7 @@
     "windows": [
       {
         "fullscreen": false,
-        "height": 600,
+        "height": 700,
         "resizable": true,
         "title": "FLEX Student Client",
         "width": 800,
