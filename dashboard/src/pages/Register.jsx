@@ -16,7 +16,7 @@ export default function Register() {
     event.preventDefault();
     if (submitting) return;
     setError('');
-    if (!form.username.trim()) { setError('Informe o nome de usuário.'); return; }
+    if (!form.username.trim()) { setError('Informe seu nome.'); return; }
     if (form.password !== form.confirmPassword) { setError('As senhas não coincidem.'); return; }
     setSubmitting(true);
     try {
@@ -30,20 +30,20 @@ export default function Register() {
   }
 
   return <section className="auth-card register-card" aria-labelledby="register-title">
-    <h1 id="register-title">Register</h1>
+    <h1 id="register-title">Criar conta</h1>
     <p className="register-subtitle">Crie sua conta de instrutor</p>
     <form onSubmit={handleSubmit}>
-      <label htmlFor="register-username">Username</label>
+      <label htmlFor="register-username">Nome</label>
       <input id="register-username" type="text" autoComplete="name" maxLength={100} value={form.username} onChange={e => update('username', e.target.value)} required autoFocus />
-      <label htmlFor="register-email">Email</label>
+      <label htmlFor="register-email">E-mail</label>
       <input id="register-email" type="email" autoComplete="email" value={form.email} onChange={e => update('email', e.target.value)} required />
-      <label htmlFor="register-password">Password</label>
+      <label htmlFor="register-password">Senha</label>
       <input id="register-password" type="password" autoComplete="new-password" value={form.password} onChange={e => update('password', e.target.value)} required />
-      <label htmlFor="register-confirm-password">Confirm Password</label>
+      <label htmlFor="register-confirm-password">Confirmar senha</label>
       <input id="register-confirm-password" type="password" autoComplete="new-password" value={form.confirmPassword} onChange={e => update('confirmPassword', e.target.value)} required />
       {error && <p className="notice error" role="alert">{error}</p>}
       <button className="primary-button register-button" type="submit" disabled={submitting}>{submitting ? 'Registrando...' : 'Registrar'}</button>
     </form>
-    <p className="auth-footer">Já tem conta? <Link to="/login">Login</Link></p>
+    <p className="auth-footer">Já tem conta? <Link to="/login">Entrar</Link></p>
   </section>;
 }

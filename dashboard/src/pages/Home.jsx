@@ -192,11 +192,11 @@ export default function Home() {
         ? { ...room, ...updatedRoom }
         : room));
       showNotice(successMessage);
-      recordAudit(`Whitelist atualizada na sala ${selectedRoom.id}.`);
+      recordAudit(`Lista de permissões atualizada na sala ${selectedRoom.id}.`);
       return true;
     } catch (updateError) {
-      setError(updateError.message || 'Não foi possível atualizar a whitelist.');
-      recordAudit(`Falha ao atualizar a whitelist: ${updateError.message || 'erro da API'}.`, 'alert');
+      setError(updateError.message || 'Não foi possível atualizar a lista de permissões.');
+      recordAudit(`Falha ao atualizar a lista de permissões: ${updateError.message || 'erro da API'}.`, 'alert');
       return false;
     } finally {
       setSavingWhitelist(false);
@@ -208,7 +208,7 @@ export default function Home() {
     const whitelist = allowed
       ? [...currentDomains, domain]
       : currentDomains.filter((item) => item !== domain);
-    await saveWhitelist({ roomId: selectedRoom.id, whitelist }, 'Whitelist atualizada.');
+    await saveWhitelist({ roomId: selectedRoom.id, whitelist }, 'Lista de permissões atualizada.');
   }
 
   async function handleAddDomain(event) {
@@ -220,20 +220,20 @@ export default function Home() {
     }
     const currentDomains = Array.isArray(selectedRoom?.whitelist) ? selectedRoom.whitelist : [];
     if (currentDomains.includes(domains[0])) {
-      setError('Esse domínio já está na whitelist.');
+      setError('Esse domínio já está na lista de permissões.');
       return;
     }
-    if (await saveWhitelist({ roomId: selectedRoom.id, whitelist: [...currentDomains, domains[0]] }, 'Domínio adicionado à whitelist.')) {
+    if (await saveWhitelist({ roomId: selectedRoom.id, whitelist: [...currentDomains, domains[0]] }, 'Domínio adicionado à lista de permissões.')) {
       setNewDomain('');
     }
   }
 
   async function handleApplyPreset() {
     if (!whitelistForm.presetId) {
-      setError('Selecione um preset.');
+      setError('Selecione uma predefinição.');
       return;
     }
-    await saveWhitelist({ roomId: selectedRoom.id, presetId: Number(whitelistForm.presetId) }, 'Preset aplicado à sala.');
+    await saveWhitelist({ roomId: selectedRoom.id, presetId: Number(whitelistForm.presetId) }, 'Predefinição aplicada à sala.');
   }
 
   async function copyRoomCode() {
@@ -300,15 +300,15 @@ export default function Home() {
       const fields = { name: presetForm.name.trim(), urls: parseDomains(presetForm.urls) };
       if (editingPresetId === null) {
         await roomsApi.createPreset(fields, token);
-        showNotice('Preset criado.');
+        showNotice('Predefinição criada.');
       } else {
         await roomsApi.updatePreset(editingPresetId, fields, token);
-        showNotice('Preset atualizado.');
+        showNotice('Predefinição atualizada.');
       }
       cancelEditingPreset();
       await loadPresets();
     } catch (saveError) {
-      setError(saveError.message || 'Não foi possível salvar o preset.');
+      setError(saveError.message || 'Não foi possível salvar a predefinição.');
     } finally {
       setSavingPreset(false);
     }
@@ -322,9 +322,9 @@ export default function Home() {
       await roomsApi.removePreset(preset.id, token);
       if (String(editingPresetId) === String(preset.id)) cancelEditingPreset();
       await loadPresets();
-      showNotice('Preset removido.');
+      showNotice('Predefinição removida.');
     } catch (deleteError) {
-      setError(deleteError.message || 'Não foi possível remover o preset.');
+      setError(deleteError.message || 'Não foi possível remover a predefinição.');
     }
   }
 
@@ -382,7 +382,7 @@ export default function Home() {
     }
   }
 
-  const sectionTitle = section === 'rooms' ? 'DASHBOARD' : section === 'presets' ? 'PRESETS' : 'PERFIL';
+  const sectionTitle = section === 'rooms' ? 'PAINEL' : section === 'presets' ? 'PREDEFINIÇÕES' : 'PERFIL';
 
   return (
     <section className="teacher-dashboard" aria-labelledby="dashboard-title">
@@ -399,14 +399,14 @@ export default function Home() {
               </div>
             )}
             <div className="classroom-code">
-              <label htmlFor="classroom-code">Classroom Code</label>
+              <label htmlFor="classroom-code">Código da sala</label>
               <input id="classroom-code" readOnly value={selectedRoom?.id || ''} placeholder={loadingRooms ? 'Carregando...' : 'Crie uma sala para gerar o código'} />
             </div>
-            <button type="button" className="primary-button copy-button" disabled={!selectedRoom?.id} onClick={copyRoomCode}>Copy</button>
+            <button type="button" className="primary-button copy-button" disabled={!selectedRoom?.id} onClick={copyRoomCode}>Copiar</button>
           </div>
         )}
         <div className="dashboard-actions">
-          {section === 'presets' && <button type="button" className="primary-button new-preset-button" onClick={startCreatingPreset}>Novo Preset</button>}
+          {section === 'presets' && <button type="button" className="primary-button new-preset-button" onClick={startCreatingPreset}>Nova predefinição</button>}
           {section === 'rooms' && selectedRoom && <button type="button" className="danger-button close-room-button" disabled={closingRoom} onClick={handleCloseRoom}>{closingRoom ? 'Fechando...' : 'Fechar sala'}</button>}
           {section === 'rooms' && <button type="button" className="primary-button new-room-button" onClick={() => setShowCreateRoom((visible) => !visible)}>{showCreateRoom ? 'Cancelar' : '+ Nova sala'}</button>}
         </div>
@@ -421,14 +421,14 @@ export default function Home() {
             <section className="panel whitelist-panel">
               <div className="panel-heading">
                 <div>
-                  <h2>Whitelist</h2>
-                  <p>Default-deny: tudo fora da lista é bloqueado.</p>
+                  <h2>Lista de permissões</h2>
+                  <p>Bloqueio por padrão: sites fora da lista são bloqueados.</p>
                 </div>
               </div>
               {selectedRoom ? (
                 <>
                   <div className="whitelist-preset-row">
-                    <label className="sr-only" htmlFor="room-preset">Preset da whitelist</label>
+                    <label className="sr-only" htmlFor="room-preset">Predefinição da lista de permissões</label>
                     <select id="room-preset" value={whitelistForm.presetId} onChange={(event) => setWhitelistForm({ presetId: event.target.value })}>
                       <option value="">Lista personalizada</option>
                       {presets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
@@ -454,16 +454,16 @@ export default function Home() {
                   <form className="add-domain-form" onSubmit={handleAddDomain}>
                     <label className="sr-only" htmlFor="new-domain">Novo domínio</label>
                     <input id="new-domain" value={newDomain} onChange={(event) => setNewDomain(event.target.value)} placeholder="novo-dominio.com" />
-                    <button className="primary-button compact-button" type="submit" disabled={savingWhitelist || !newDomain.trim()}>{savingWhitelist ? '...' : 'Add'}</button>
+                    <button className="primary-button compact-button" type="submit" disabled={savingWhitelist || !newDomain.trim()}>{savingWhitelist ? '...' : 'Adicionar'}</button>
                   </form>
                 </>
               ) : (
-                <p className="empty-state">{loadingRooms ? 'Carregando sala...' : 'Crie ou selecione uma sala para editar a whitelist.'}</p>
+                <p className="empty-state">{loadingRooms ? 'Carregando sala...' : 'Crie ou selecione uma sala para editar a lista de permissões.'}</p>
               )}
             </section>
 
             <section className="panel students-panel">
-              <div className="panel-heading"><h2>Students Connected ({participants.length})</h2></div>
+              <div className="panel-heading"><h2>Participantes conectados ({participants.length})</h2></div>
               {!selectedRoom ? (
                 <p className="empty-state">Os participantes aparecerão quando uma sala estiver ativa.</p>
               ) : loadingParticipants && participants.length === 0 ? (
@@ -475,7 +475,7 @@ export default function Home() {
                   {participants.map((participant, index) => (
                     <li className="student-row" key={`${participant.nickname}-${participant.connectedAt || index}`}>
                       <span>{participant.nickname}</span>
-                      <span className="student-status" title={`Conectado em ${formatDate(participant.connectedAt)}`}>Online</span>
+                      <span className="student-status" title={`Conectado em ${formatDate(participant.connectedAt)}`}>Conectado</span>
                     </li>
                   ))}
                 </ul>
@@ -485,7 +485,7 @@ export default function Home() {
 
           <section className="panel audit-panel">
             <div className="panel-heading">
-              <div><h2>Audit Log</h2><p>Atividade observada nesta sessão.</p></div>
+              <div><h2>Registro de atividades</h2><p>Atividade observada nesta sessão.</p></div>
             </div>
             {auditEntries.length === 0 ? <p className="empty-state">Nenhuma atividade registrada ainda.</p> : (
               <ul className="audit-list">
@@ -508,7 +508,7 @@ export default function Home() {
                 <input id="new-room-name" value={roomForm.name} onChange={(event) => setRoomForm((current) => ({ ...current, name: event.target.value }))} maxLength="80" required placeholder="Ex.: Aula de matemática" />
                 <label htmlFor="room-capacity">Capacidade</label>
                 <input id="room-capacity" type="number" min="1" step="1" value={roomForm.capacity} onChange={(event) => setRoomForm((current) => ({ ...current, capacity: event.target.value }))} required />
-                <label htmlFor="new-room-preset">Whitelist</label>
+                <label htmlFor="new-room-preset">Lista de permissões</label>
                 <select id="new-room-preset" value={roomForm.presetId} onChange={(event) => setRoomForm((current) => ({ ...current, presetId: event.target.value }))}>
                   <option value="">Usar lista própria</option>
                   {presets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
@@ -529,8 +529,8 @@ export default function Home() {
 
       {section === 'presets' && (
         <div className="presets-layout">
-            <section className="preset-list" aria-label="Presets cadastrados">
-              {presets.length === 0 ? <p className="empty-state panel">Nenhum preset cadastrado. Crie um para reutilizar domínios permitidos.</p> : (
+            <section className="preset-list" aria-label="Predefinições cadastradas">
+              {presets.length === 0 ? <p className="empty-state panel">Nenhuma predefinição cadastrada. Crie uma para reutilizar domínios permitidos.</p> : (
                 presets.map((preset) => {
                   const domains = Array.isArray(preset.urls) ? preset.urls : [];
                   return (
@@ -554,7 +554,7 @@ export default function Home() {
             </section>
 
             <section className="panel preset-editor">
-              <h2>{editingPresetId === null ? 'Novo preset' : 'Editar preset'}</h2>
+              <h2>{editingPresetId === null ? 'Nova predefinição' : 'Editar predefinição'}</h2>
               <form className="form-stack" onSubmit={handleSavePreset}>
                 <label htmlFor="preset-name">Nome</label>
                 <input id="preset-name" value={presetForm.name} onChange={(event) => setPresetForm((current) => ({ ...current, name: event.target.value }))} maxLength="80" required />

@@ -30,17 +30,17 @@ export default function Login() {
   }
 
   return <section className="auth-card login-card" aria-labelledby="login-title">
-    <div className="login-brand"><Logo size={48} /><p>Flexible Learning Endpoint X-filter</p></div>
-    <h1 className="sr-only" id="login-title">Login</h1>
+    <div className="login-brand"><Logo size={48} /><p>Aprendizado flexível com filtragem inteligente</p></div>
+    <h1 className="sr-only" id="login-title">Entrar</h1>
     <form onSubmit={handleSubmit}>
-      <label htmlFor="login-email">Email</label>
+      <label htmlFor="login-email">E-mail</label>
       <input id="login-email" type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} required autoFocus />
-      <label htmlFor="login-password">Password</label>
+      <label htmlFor="login-password">Senha</label>
       <input id="login-password" type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} required />
       {location.state?.registered && <p className="notice success" role="status">Cadastro realizado! Entre com seu e-mail e senha.</p>}
       {error && <p className="notice error" role="alert">{error}</p>}
-      <button className="primary-button login-button" disabled={submitting} type="submit">{submitting ? 'Entrando...' : 'Login'}</button>
+      <button className="primary-button login-button" disabled={submitting} type="submit">{submitting ? 'Entrando...' : 'Entrar'}</button>
     </form>
-    <p className="auth-footer">Ainda não tem conta? <Link to="/register">Registre aqui</Link></p>
+    <p className="auth-footer">Ainda não tem conta? <Link to="/register">Cadastre-se</Link></p>
   </section>;
 }

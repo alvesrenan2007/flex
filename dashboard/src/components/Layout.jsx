@@ -36,19 +36,19 @@ export default function Layout({ children }) {
           <Logo size={43} theme={theme} />
           {isAuthenticated && isDashboard ? (
             <nav className="dashboard-nav" aria-label="Navegação principal">
-              <NavLink to="/app" end>Dashboard</NavLink>
-              <NavLink to="/app/presets">Presets</NavLink>
+              <NavLink to="/app" end>Painel</NavLink>
+              <NavLink to="/app/presets">Predefinições</NavLink>
               <NavLink to="/app/profile">Perfil</NavLink>
               {themeToggle}
               <span className="dashboard-user-name">{professor?.name || professor?.email || 'Instrutor'}</span>
-              <button type="button" onClick={logout}>Logout</button>
+              <button type="button" onClick={logout}>Sair</button>
             </nav>
           ) : (
             <div className="topbar-controls">
               {isAuthenticated && (
                 <div className="topbar-account">
                   <span>{professor?.name || professor?.email || 'Instrutor'}</span>
-                  <button type="button" onClick={logout}>Logout</button>
+                  <button type="button" onClick={logout}>Sair</button>
                 </div>
               )}
               {themeToggle}

@@ -47,7 +47,7 @@ function emitTeacherEvent(token, event, payload) {
       socket.timeout(10000).emit(event, payload, (timeoutError, result) => {
         cleanup();
         if (timeoutError) {
-          reject(new Error('A API não respondeu à solicitação da sala.'));
+          reject(new Error('O servidor não respondeu à solicitação da sala.'));
         } else if (!result?.ok) {
           const message = typeof result?.error === 'string'
             ? result.error
