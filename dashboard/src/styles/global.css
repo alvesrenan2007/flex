@@ -275,6 +275,7 @@ a:hover { text-decoration: underline; }
 .theme-toggle { display: grid; place-items: center; width: 28px; height: 28px; flex: 0 0 28px; border: 1px solid #d5dbe6; border-radius: 50%; color: #31549c; background: transparent; cursor: pointer; font-size: 16px; line-height: 1; }
 .theme-toggle:hover { background: #eff4ff; }
 .dashboard-nav .theme-toggle { padding: 0; }
+.dark-logo { transform: translateX(-3px); }
 :root[data-theme="dark"] { color-scheme: dark; color: #e7edf5; background: #101723; }
 .app-shell[data-theme="dark"] {
   --dark-surface: #182232;
