@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { professorsApi } from '../api/professors';
 import { roomsApi, teacherRoomSocket } from '../api/rooms';
@@ -23,10 +23,18 @@ function formatDate(value) {
   return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString('pt-BR');
 }
 
+function getInitials(value) {
+  const words = (value || 'Instrutor').trim().split(/\s+/).filter(Boolean);
+  return words.length > 1
+    ? `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase()
+    : words[0].slice(0, 2).toUpperCase();
+}
+
 export default function Home() {
   const { professor, token, logout, refreshProfile } = useAuth();
   const navigate = useNavigate();
-  const [section, setSection] = useState('rooms');
+  const { pathname } = useLocation();
+  const section = pathname.endsWith('/presets') ? 'presets' : pathname.endsWith('/profile') ? 'profile' : 'rooms';
   const [rooms, setRooms] = useState([]);
   const [presets, setPresets] = useState([]);
   const [selectedRoomId, setSelectedRoomId] = useState('');
@@ -47,7 +55,7 @@ export default function Home() {
   const [presetForm, setPresetForm] = useState(EMPTY_PRESET_FORM);
   const [editingPresetId, setEditingPresetId] = useState(null);
   const [savingPreset, setSavingPreset] = useState(false);
-  const [profileForm, setProfileForm] = useState({ name: '', email: '', password: '' });
+  const [profileForm, setProfileForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
   const [savingProfile, setSavingProfile] = useState(false);
   const participantSnapshot = useRef({ roomId: '', names: new Set() });
   const auditSequence = useRef(0);
@@ -122,7 +130,7 @@ export default function Home() {
   }, [section, selectedRoomId, token]);
 
   useEffect(() => {
-    setProfileForm({ name: professor?.name || '', email: professor?.email || '', password: '' });
+    setProfileForm({ name: professor?.name || '', email: professor?.email || '', password: '', confirmPassword: '' });
   }, [professor]);
 
   useEffect(() => {
@@ -184,11 +192,11 @@ export default function Home() {
         ? { ...room, ...updatedRoom }
         : room));
       showNotice(successMessage);
-      recordAudit(`Whitelist atualizada na sala ${selectedRoom.id}.`);
+      recordAudit(`Lista de permissões atualizada na sala ${selectedRoom.id}.`);
       return true;
     } catch (updateError) {
-      setError(updateError.message || 'Não foi possível atualizar a whitelist.');
-      recordAudit(`Falha ao atualizar a whitelist: ${updateError.message || 'erro da API'}.`, 'alert');
+      setError(updateError.message || 'Não foi possível atualizar a lista de permissões.');
+      recordAudit(`Falha ao atualizar a lista de permissões: ${updateError.message || 'erro da API'}.`, 'alert');
       return false;
     } finally {
       setSavingWhitelist(false);
@@ -200,7 +208,7 @@ export default function Home() {
     const whitelist = allowed
       ? [...currentDomains, domain]
       : currentDomains.filter((item) => item !== domain);
-    await saveWhitelist({ roomId: selectedRoom.id, whitelist }, 'Whitelist atualizada.');
+    await saveWhitelist({ roomId: selectedRoom.id, whitelist }, 'Lista de permissões atualizada.');
   }
 
   async function handleAddDomain(event) {
@@ -212,20 +220,20 @@ export default function Home() {
     }
     const currentDomains = Array.isArray(selectedRoom?.whitelist) ? selectedRoom.whitelist : [];
     if (currentDomains.includes(domains[0])) {
-      setError('Esse domínio já está na whitelist.');
+      setError('Esse domínio já está na lista de permissões.');
       return;
     }
-    if (await saveWhitelist({ roomId: selectedRoom.id, whitelist: [...currentDomains, domains[0]] }, 'Domínio adicionado à whitelist.')) {
+    if (await saveWhitelist({ roomId: selectedRoom.id, whitelist: [...currentDomains, domains[0]] }, 'Domínio adicionado à lista de permissões.')) {
       setNewDomain('');
     }
   }
 
   async function handleApplyPreset() {
     if (!whitelistForm.presetId) {
-      setError('Selecione um preset.');
+      setError('Selecione uma predefinição.');
       return;
     }
-    await saveWhitelist({ roomId: selectedRoom.id, presetId: Number(whitelistForm.presetId) }, 'Preset aplicado à sala.');
+    await saveWhitelist({ roomId: selectedRoom.id, presetId: Number(whitelistForm.presetId) }, 'Predefinição aplicada à sala.');
   }
 
   async function copyRoomCode() {
@@ -276,6 +284,13 @@ export default function Home() {
     setPresetForm(EMPTY_PRESET_FORM);
   }
 
+  function startCreatingPreset() {
+    setEditingPresetId(null);
+    setPresetForm(EMPTY_PRESET_FORM);
+    setError('');
+    setNotice('');
+  }
+
   async function handleSavePreset(event) {
     event.preventDefault();
     setError('');
@@ -285,15 +300,15 @@ export default function Home() {
       const fields = { name: presetForm.name.trim(), urls: parseDomains(presetForm.urls) };
       if (editingPresetId === null) {
         await roomsApi.createPreset(fields, token);
-        showNotice('Preset criado.');
+        showNotice('Predefinição criada.');
       } else {
         await roomsApi.updatePreset(editingPresetId, fields, token);
-        showNotice('Preset atualizado.');
+        showNotice('Predefinição atualizada.');
       }
       cancelEditingPreset();
       await loadPresets();
     } catch (saveError) {
-      setError(saveError.message || 'Não foi possível salvar o preset.');
+      setError(saveError.message || 'Não foi possível salvar a predefinição.');
     } finally {
       setSavingPreset(false);
     }
@@ -307,9 +322,9 @@ export default function Home() {
       await roomsApi.removePreset(preset.id, token);
       if (String(editingPresetId) === String(preset.id)) cancelEditingPreset();
       await loadPresets();
-      showNotice('Preset removido.');
+      showNotice('Predefinição removida.');
     } catch (deleteError) {
-      setError(deleteError.message || 'Não foi possível remover o preset.');
+      setError(deleteError.message || 'Não foi possível remover a predefinição.');
     }
   }
 
@@ -320,13 +335,36 @@ export default function Home() {
     setSavingProfile(true);
     try {
       const fields = { name: profileForm.name.trim(), email: profileForm.email.trim() };
-      if (profileForm.password) fields.password = profileForm.password;
       await professorsApi.update(professor.id, fields, token);
       await refreshProfile();
-      setProfileForm((current) => ({ ...current, password: '' }));
       showNotice('Perfil atualizado.');
     } catch (saveError) {
       setError(saveError.message || 'Não foi possível atualizar o perfil.');
+    } finally {
+      setSavingProfile(false);
+    }
+  }
+
+  async function handleChangePassword(event) {
+    event.preventDefault();
+    setError('');
+    setNotice('');
+    if (!profileForm.password) {
+      setError('Informe a nova senha.');
+      return;
+    }
+    if (profileForm.password !== profileForm.confirmPassword) {
+      setError('As senhas não coincidem.');
+      return;
+    }
+
+    setSavingProfile(true);
+    try {
+      await professorsApi.update(professor.id, { password: profileForm.password }, token);
+      setProfileForm((current) => ({ ...current, password: '', confirmPassword: '' }));
+      showNotice('Senha alterada.');
+    } catch (saveError) {
+      setError(saveError.message || 'Não foi possível alterar a senha.');
     } finally {
       setSavingProfile(false);
     }
@@ -344,7 +382,7 @@ export default function Home() {
     }
   }
 
-  const sectionTitle = section === 'rooms' ? 'DASHBOARD' : section === 'presets' ? 'PRESETS' : 'INSTRUTOR';
+  const sectionTitle = section === 'rooms' ? 'PAINEL' : section === 'presets' ? 'PREDEFINIÇÕES' : 'PERFIL';
 
   return (
     <section className="teacher-dashboard" aria-labelledby="dashboard-title">
@@ -361,19 +399,17 @@ export default function Home() {
               </div>
             )}
             <div className="classroom-code">
-              <label htmlFor="classroom-code">Classroom Code</label>
+              <label htmlFor="classroom-code">Código da sala</label>
               <input id="classroom-code" readOnly value={selectedRoom?.id || ''} placeholder={loadingRooms ? 'Carregando...' : 'Crie uma sala para gerar o código'} />
             </div>
-            <button type="button" className="primary-button copy-button" disabled={!selectedRoom?.id} onClick={copyRoomCode}>Copy</button>
+            <button type="button" className="primary-button copy-button" disabled={!selectedRoom?.id} onClick={copyRoomCode}>Copiar</button>
           </div>
         )}
-        <nav className="dashboard-actions" aria-label="Seções do professor">
-          {section !== 'rooms' && <button type="button" onClick={() => { setSection('rooms'); setError(''); setNotice(''); }}>Dashboard</button>}
-          <button type="button" className={section === 'presets' ? 'active' : ''} onClick={() => { setSection('presets'); setError(''); setNotice(''); }}>Presets</button>
-          <button type="button" className={section === 'profile' ? 'active' : ''} onClick={() => { setSection('profile'); setError(''); setNotice(''); }}>Perfil</button>
+        <div className="dashboard-actions">
+          {section === 'presets' && <button type="button" className="primary-button new-preset-button" onClick={startCreatingPreset}>Nova predefinição</button>}
           {section === 'rooms' && selectedRoom && <button type="button" className="danger-button close-room-button" disabled={closingRoom} onClick={handleCloseRoom}>{closingRoom ? 'Fechando...' : 'Fechar sala'}</button>}
           {section === 'rooms' && <button type="button" className="primary-button new-room-button" onClick={() => setShowCreateRoom((visible) => !visible)}>{showCreateRoom ? 'Cancelar' : '+ Nova sala'}</button>}
-        </nav>
+        </div>
       </div>
 
       {error && <p className="notice error dashboard-notice" role="alert">{error}</p>}
@@ -385,14 +421,14 @@ export default function Home() {
             <section className="panel whitelist-panel">
               <div className="panel-heading">
                 <div>
-                  <h2>Whitelist</h2>
-                  <p>Default-deny: tudo fora da lista é bloqueado.</p>
+                  <h2>Lista de permissões</h2>
+                  <p>Bloqueio por padrão: sites fora da lista são bloqueados.</p>
                 </div>
               </div>
               {selectedRoom ? (
                 <>
                   <div className="whitelist-preset-row">
-                    <label className="sr-only" htmlFor="room-preset">Preset da whitelist</label>
+                    <label className="sr-only" htmlFor="room-preset">Predefinição da lista de permissões</label>
                     <select id="room-preset" value={whitelistForm.presetId} onChange={(event) => setWhitelistForm({ presetId: event.target.value })}>
                       <option value="">Lista personalizada</option>
                       {presets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
@@ -418,16 +454,16 @@ export default function Home() {
                   <form className="add-domain-form" onSubmit={handleAddDomain}>
                     <label className="sr-only" htmlFor="new-domain">Novo domínio</label>
                     <input id="new-domain" value={newDomain} onChange={(event) => setNewDomain(event.target.value)} placeholder="novo-dominio.com" />
-                    <button className="primary-button compact-button" type="submit" disabled={savingWhitelist || !newDomain.trim()}>{savingWhitelist ? '...' : 'Add'}</button>
+                    <button className="primary-button compact-button" type="submit" disabled={savingWhitelist || !newDomain.trim()}>{savingWhitelist ? '...' : 'Adicionar'}</button>
                   </form>
                 </>
               ) : (
-                <p className="empty-state">{loadingRooms ? 'Carregando sala...' : 'Crie ou selecione uma sala para editar a whitelist.'}</p>
+                <p className="empty-state">{loadingRooms ? 'Carregando sala...' : 'Crie ou selecione uma sala para editar a lista de permissões.'}</p>
               )}
             </section>
 
             <section className="panel students-panel">
-              <div className="panel-heading"><h2>Students Connected ({participants.length})</h2></div>
+              <div className="panel-heading"><h2>Participantes conectados ({participants.length})</h2></div>
               {!selectedRoom ? (
                 <p className="empty-state">Os participantes aparecerão quando uma sala estiver ativa.</p>
               ) : loadingParticipants && participants.length === 0 ? (
@@ -439,7 +475,7 @@ export default function Home() {
                   {participants.map((participant, index) => (
                     <li className="student-row" key={`${participant.nickname}-${participant.connectedAt || index}`}>
                       <span>{participant.nickname}</span>
-                      <span className="student-status" title={`Conectado em ${formatDate(participant.connectedAt)}`}>Online</span>
+                      <span className="student-status" title={`Conectado em ${formatDate(participant.connectedAt)}`}>Conectado</span>
                     </li>
                   ))}
                 </ul>
@@ -449,7 +485,7 @@ export default function Home() {
 
           <section className="panel audit-panel">
             <div className="panel-heading">
-              <div><h2>Audit Log</h2><p>Atividade observada nesta sessão.</p></div>
+              <div><h2>Registro de atividades</h2><p>Atividade observada nesta sessão.</p></div>
             </div>
             {auditEntries.length === 0 ? <p className="empty-state">Nenhuma atividade registrada ainda.</p> : (
               <ul className="audit-list">
@@ -472,7 +508,7 @@ export default function Home() {
                 <input id="new-room-name" value={roomForm.name} onChange={(event) => setRoomForm((current) => ({ ...current, name: event.target.value }))} maxLength="80" required placeholder="Ex.: Aula de matemática" />
                 <label htmlFor="room-capacity">Capacidade</label>
                 <input id="room-capacity" type="number" min="1" step="1" value={roomForm.capacity} onChange={(event) => setRoomForm((current) => ({ ...current, capacity: event.target.value }))} required />
-                <label htmlFor="new-room-preset">Whitelist</label>
+                <label htmlFor="new-room-preset">Lista de permissões</label>
                 <select id="new-room-preset" value={roomForm.presetId} onChange={(event) => setRoomForm((current) => ({ ...current, presetId: event.target.value }))}>
                   <option value="">Usar lista própria</option>
                   {presets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
@@ -492,60 +528,86 @@ export default function Home() {
       )}
 
       {section === 'presets' && (
-        <div className="dashboard-grid presets-grid">
-          <section className="panel">
-            <div className="panel-heading"><div><h2>Seus presets</h2><p>Reutilize listas de domínios em novas salas.</p></div></div>
-            {presets.length === 0 ? <p className="empty-state">Nenhum preset cadastrado.</p> : (
-              <div className="preset-list">
-                {presets.map((preset) => (
-                  <article className="preset-item" key={preset.id}>
-                    <div><h3>{preset.name}</h3><p>{Array.isArray(preset.urls) ? preset.urls.join(' · ') : ''}</p></div>
-                    <div className="item-actions">
-                      <button type="button" className="text-button" onClick={() => startEditingPreset(preset)}>Editar</button>
-                      <button type="button" className="text-button danger-text" onClick={() => handleDeletePreset(preset)}>Excluir</button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
+        <div className="presets-layout">
+            <section className="preset-list" aria-label="Predefinições cadastradas">
+              {presets.length === 0 ? <p className="empty-state panel">Nenhuma predefinição cadastrada. Crie uma para reutilizar domínios permitidos.</p> : (
+                presets.map((preset) => {
+                  const domains = Array.isArray(preset.urls) ? preset.urls : [];
+                  return (
+                    <article className={`preset-card ${String(editingPresetId) === String(preset.id) ? 'selected' : ''}`} key={preset.id}>
+                      <div className="preset-card-heading">
+                        <h3>{preset.name}</h3>
+                        <span className="preset-domain-count">{domains.length} {domains.length === 1 ? 'domínio' : 'domínios'}</span>
+                      </div>
+                      <div className="preset-domain-preview">
+                        {domains.slice(0, 3).map((domain) => <span className="preset-domain-chip" key={domain}>{domain}</span>)}
+                        {domains.length > 3 && <span className="preset-more-domains">+{domains.length - 3}</span>}
+                      </div>
+                      <div className="preset-card-actions">
+                        <button type="button" className="outline-button" onClick={() => startEditingPreset(preset)}>Editar</button>
+                        <button type="button" className="outline-button delete-preset-button" onClick={() => handleDeletePreset(preset)}>Excluir</button>
+                      </div>
+                    </article>
+                  );
+                })
+              )}
+            </section>
 
-          <section className="panel">
-            <h2>{editingPresetId === null ? 'Criar preset' : 'Editar preset'}</h2>
-            <p className="panel-description">Até 100 domínios por preset. A API normaliza e remove duplicatas.</p>
-            <form className="form-stack" onSubmit={handleSavePreset}>
-              <label htmlFor="preset-name">Nome</label>
-              <input id="preset-name" value={presetForm.name} onChange={(event) => setPresetForm((current) => ({ ...current, name: event.target.value }))} maxLength="80" required />
-              <label htmlFor="preset-domains">Domínios permitidos</label>
-              <textarea id="preset-domains" rows="8" placeholder={'google.com\ndocs.example.org'} value={presetForm.urls} onChange={(event) => setPresetForm((current) => ({ ...current, urls: event.target.value }))} />
-              <small className="field-hint">Um domínio por linha, sem protocolo, caminho ou porta.</small>
-              <button className="primary-button" type="submit" disabled={savingPreset}>{savingPreset ? 'Salvando...' : editingPresetId === null ? 'Criar preset' : 'Salvar alterações'}</button>
-              {editingPresetId !== null && <button className="secondary-button" type="button" onClick={cancelEditingPreset}>Cancelar edição</button>}
-            </form>
-          </section>
+            <section className="panel preset-editor">
+              <h2>{editingPresetId === null ? 'Nova predefinição' : 'Editar predefinição'}</h2>
+              <form className="form-stack" onSubmit={handleSavePreset}>
+                <label htmlFor="preset-name">Nome</label>
+                <input id="preset-name" value={presetForm.name} onChange={(event) => setPresetForm((current) => ({ ...current, name: event.target.value }))} maxLength="80" required />
+                <label htmlFor="preset-domains">Domínios (um por linha)</label>
+                <textarea id="preset-domains" rows="6" placeholder={'github.com\nrust-lang.org\ndocs.example.org'} value={presetForm.urls} onChange={(event) => setPresetForm((current) => ({ ...current, urls: event.target.value }))} />
+                <div className="preset-editor-actions">
+                  <button className="primary-button" type="submit" disabled={savingPreset}>{savingPreset ? 'Salvando...' : 'Salvar'}</button>
+                  <button className="outline-button" type="button" onClick={cancelEditingPreset}>Cancelar</button>
+                </div>
+              </form>
+            </section>
         </div>
       )}
 
       {section === 'profile' && (
-        <div className="profile-layout">
-          <section className="panel profile-panel">
-            <h2>Meu perfil</h2>
-            <p className="panel-description">Atualize seus dados de acesso. Deixe a senha vazia para mantê-la.</p>
-            <form className="form-stack" onSubmit={handleSaveProfile}>
-              <label htmlFor="profile-name">Nome</label>
-              <input id="profile-name" autoComplete="name" maxLength="100" value={profileForm.name} onChange={(event) => setProfileForm((current) => ({ ...current, name: event.target.value }))} required />
-              <label htmlFor="profile-email">E-mail</label>
-              <input id="profile-email" type="email" autoComplete="email" value={profileForm.email} onChange={(event) => setProfileForm((current) => ({ ...current, email: event.target.value }))} required />
-              <label htmlFor="profile-password">Nova senha</label>
-              <input id="profile-password" type="password" autoComplete="new-password" value={profileForm.password} onChange={(event) => setProfileForm((current) => ({ ...current, password: event.target.value }))} />
-              <button className="primary-button" type="submit" disabled={savingProfile}>{savingProfile ? 'Salvando...' : 'Salvar perfil'}</button>
-            </form>
-          </section>
-          <section className="panel account-danger-panel">
-            <h2>Excluir conta</h2>
-            <p>A exclusão da conta é permanente e não pode ser desfeita.</p>
-            <button type="button" className="danger-button" onClick={handleDeleteAccount}>Excluir minha conta</button>
-          </section>
+        <div className="profile-page">
+          <div className="profile-layout">
+            <section className="panel profile-data-panel">
+              <h2>Dados pessoais</h2>
+              <form className="form-stack" onSubmit={handleSaveProfile}>
+                <label htmlFor="profile-name">Nome</label>
+                <input id="profile-name" autoComplete="name" maxLength="100" value={profileForm.name} onChange={(event) => setProfileForm((current) => ({ ...current, name: event.target.value }))} required />
+                <label htmlFor="profile-email">E-mail</label>
+                <input id="profile-email" type="email" autoComplete="email" value={profileForm.email} onChange={(event) => setProfileForm((current) => ({ ...current, email: event.target.value }))} required />
+                <button className="primary-button profile-action-button" type="submit" disabled={savingProfile}>{savingProfile ? 'Salvando...' : 'Salvar dados'}</button>
+              </form>
+            </section>
+
+            <section className="panel profile-summary-panel" aria-label="Resumo da conta">
+              <div className="profile-avatar">{getInitials(professor?.name || professor?.email)}</div>
+              <strong>{professor?.name || 'Instrutor'}</strong>
+              <span>{professor?.email || ''}</span>
+              <span className="profile-role-badge">Instrutor</span>
+            </section>
+
+            <section className="panel profile-security-panel">
+              <h2>Segurança</h2>
+              <p>A senha atual não é exibida. Deixe em branco para mantê-la.</p>
+              <form className="form-stack" onSubmit={handleChangePassword}>
+                <label htmlFor="profile-password">Nova senha</label>
+                <input id="profile-password" type="password" autoComplete="new-password" value={profileForm.password} onChange={(event) => setProfileForm((current) => ({ ...current, password: event.target.value }))} />
+                <label htmlFor="profile-confirm-password">Confirmar nova senha</label>
+                <input id="profile-confirm-password" type="password" autoComplete="new-password" value={profileForm.confirmPassword} onChange={(event) => setProfileForm((current) => ({ ...current, confirmPassword: event.target.value }))} />
+                <button className="primary-button profile-action-button" type="submit" disabled={savingProfile}>{savingProfile ? 'Salvando...' : 'Alterar senha'}</button>
+              </form>
+            </section>
+
+            <section className="panel account-danger-panel">
+              <h2>Excluir conta</h2>
+              <p>Esta ação é permanente. Você precisará confirmar antes de prosseguir.</p>
+              <button type="button" className="danger-button" onClick={handleDeleteAccount}>Excluir conta</button>
+            </section>
+          </div>
         </div>
       )}
     </section>
