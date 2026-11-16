@@ -1,4 +1,8 @@
-export default function Logo({ size = 45, theme = 'light' }) {
+import { useContext } from 'react';
+import { ThemeContext } from './ThemeContext';
+
+export default function Logo({ size = 45 }) {
+  const theme = useContext(ThemeContext);
   const isDark = theme === 'dark';
   const width = isDark ? Math.round(size * 1.16) : size;
   const height = isDark ? Math.round(width * (542 / 572)) : Math.round(size * 0.752);

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import Logo from './Logo';
+import { ThemeContext } from './ThemeContext';
 import { useAuth } from '../auth/AuthContext';
 
 const THEME_STORAGE_KEY = 'flex_theme';
@@ -30,33 +31,35 @@ export default function Layout({ children }) {
   );
 
   return (
-    <div className={`app-shell ${isDashboard ? 'dashboard-shell' : ''}`} data-theme={theme}>
-      <header className="topbar">
-        <div className="topbar-inner">
-          <Logo size={43} theme={theme} />
-          {isAuthenticated && isDashboard ? (
-            <nav className="dashboard-nav" aria-label="Navegação principal">
-              <NavLink to="/app" end>Painel</NavLink>
-              <NavLink to="/app/presets">Predefinições</NavLink>
-              <NavLink to="/app/profile">Perfil</NavLink>
-              {themeToggle}
-              <span className="dashboard-user-name">{professor?.name || professor?.email || 'Instrutor'}</span>
-              <button type="button" onClick={logout}>Sair</button>
-            </nav>
-          ) : (
-            <div className="topbar-controls">
-              {isAuthenticated && (
-                <div className="topbar-account">
-                  <span>{professor?.name || professor?.email || 'Instrutor'}</span>
-                  <button type="button" onClick={logout}>Sair</button>
-                </div>
-              )}
-              {themeToggle}
-            </div>
-          )}
-        </div>
-      </header>
-      <main className="main-area">{children}</main>
-    </div>
+    <ThemeContext.Provider value={theme}>
+      <div className={`app-shell ${isDashboard ? 'dashboard-shell' : ''}`} data-theme={theme}>
+        <header className="topbar">
+          <div className="topbar-inner">
+            <Logo size={43} />
+            {isAuthenticated && isDashboard ? (
+              <nav className="dashboard-nav" aria-label="Navegação principal">
+                <NavLink to="/app" end>Painel</NavLink>
+                <NavLink to="/app/presets">Predefinições</NavLink>
+                <NavLink to="/app/profile">Perfil</NavLink>
+                {themeToggle}
+                <span className="dashboard-user-name">{professor?.name || professor?.email || 'Instrutor'}</span>
+                <button type="button" onClick={logout}>Sair</button>
+              </nav>
+            ) : (
+              <div className="topbar-controls">
+                {isAuthenticated && (
+                  <div className="topbar-account">
+                    <span>{professor?.name || professor?.email || 'Instrutor'}</span>
+                    <button type="button" onClick={logout}>Sair</button>
+                  </div>
+                )}
+                {themeToggle}
+              </div>
+            )}
+          </div>
+        </header>
+        <main className="main-area">{children}</main>
+      </div>
+    </ThemeContext.Provider>
   );
 }
