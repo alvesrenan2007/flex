@@ -27,7 +27,7 @@ struct RoomData {
 
 #[derive(Deserialize, Debug)]
 struct WhitelistUpdatePayload {
-    roomId: String,
+    room_id: String,
     whitelist: Vec<String>,
 }
 
